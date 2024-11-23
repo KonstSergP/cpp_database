@@ -1,54 +1,55 @@
 #include <iostream>
 #include <set>
+#include <stack>
 #include <limits>
+#include <memory>
 #include "../include/database.hpp"
 #include "../include/utils.hpp"
+#include "../include/ErrorHandler.hpp"
+#include "../include/evaluator.hpp"
 
 
-//memdb::Database::Database() {}
-
-//memdb::Database::~Database() {}
 
 Tables::QueryResult memdb::Database::execute(std::string query)
 {
-	parser_.set_query(query);
-	parser_.parse_space_newline_seq();
-
-	std::string command;
-	if (!parser_.parse_command(command))
-	{
-		printf("Все плохо 1\n"); exit(-1);
-	}
-	std::transform(command.begin(), command.end(), command.begin(), ::toupper);
-
 	Tables::QueryResult result;
-	if (command == "CREATE")
+
+	try
 	{
-		if (!parser_.parse_creation(command))
+		parser_.set_query(query);
+		parser_.parse_space_newline_seq();
+
+		std::string command;
+		if (!parser_.parse_command(command))
 		{
-			printf("Все плохо 4\n"); exit(-1);
+			throw TableException(TE::NO_COMMAND);
 		}
-		std::transform(command.begin(), command.end(), command.begin(), ::toupper);
 
-		std::cout << "execute, command: " << command << "\n";
-		result = this->create_table();
+		if (command == "CREATE")
+		{
+			if (!parser_.parse_creation(command))
+			{
+				throw TableException(TE::NOCR_OBJ);
+			}
 
-	} else if (command == "SELECT")
+			result = create_table();
+
+		} else if (command == "SELECT")
+		{
+			result = select();
+		} else if (command == "UPDATE")
+		{
+			result = update();
+		} else if (command == "INSERT")
+		{
+			result = insert();
+		} else if (command == "DELETE")
+		{
+			result = remove();
+		}
+	} catch (TableException& e)
 	{
-		result = this->select();
-	} else if (command == "UPDATE")
-	{
-		result = this->update();
-	} else if (command == "INSERT")
-	{
-		std::cout << "INSERT PARSED\n";
-		result = this->insert();
-	} else if (command == "DELETE")
-	{
-		result = this->remove();
-	} else
-	{
-		printf("Все плохо 2\n"); exit(-1);
+		return Tables::QueryResult(e);
 	}
 
 	return result;
@@ -60,19 +61,34 @@ Tables::Column memdb::Database::make_column()
 	Tables::Column column;
 
 	int flags;
-	parser_.parse_attributes(flags);
+	if (!parser_.parse_attributes(flags))
+	{
+		throw TableException(TE::PARSE_ATTR);
+	}
 	column.set_attributes(flags);
 
 	std::string name;
-	parser_.parse_name(name);
+	if (!parser_.parse_name(name))
+	{
+		throw TableException(TE::PARSE_CNAME);
+	}
 	column.set_name(name);
 
 	TypeInfo type_info;
-	parser_.parse_type(type_info);
+	if (!parser_.parse_type(type_info))
+	{
+		throw TableException(TE::PARSE_TYPE);
+	}
 	column.set_type(type_info);
 
 	std::shared_ptr<void> ptr;
-	parser_.parse_value(type_info, ptr);
+	if (parser_.parse_equal_sign())
+	{
+		if(!parser_.parse_value(false, type_info, ptr))
+		{
+			throw TableException(TE::PARSE_VAL);
+		}
+	}
 	column.set_default(ptr);
 	parser_.parse_comma();
 
@@ -87,14 +103,14 @@ Tables::QueryResult memdb::Database::create_table()
 	std::string name;
 	if (!parser_.parse_name(name))
 	{
-		printf("Все плохо 3\n"); exit(-1);
+		throw TableException(TE::PARSE_TNAME);
 	}
-	std::cout << "table name: " << name << "\n";
 	table.set_name(name);
 
-
-	parser_.parse_open();
-	std::cout << "parse_open work\n";
+	if (!parser_.parse_open())
+	{
+		throw TableException(TE::EXP_OPEN);
+	}
 	while (!parser_.parse_close())
 	{
 		Tables::Column column = make_column();
@@ -109,16 +125,19 @@ Tables::QueryResult memdb::Database::create_table()
 
 Tables::QueryResult memdb::Database::insert()
 {
-	std::string values;
-	parser_.parse_values(values);
+	std::string values, name;
+	if (!parser_.parse_values(values))
+	{
+		throw TableException(TE::PARSE_VALS);
+	}
 	parser_.parse_string("to");
 
-	std::string name;
-	parser_.parse_name(name);
-	std::cout << "Parsed name: " << name << "\n";
-	std::cout << "Parsed values: " << values << "\n";
+	if (!parser_.parse_name(name))
+	{
+		throw TableException(TE::PARSE_TNAME);
+	}
 
-	Tables::Table table = get_table(name).get_structure();
+	Tables::Table table = get(name).get_structure();
 
 	auto vals = parser_.split_values(values, ',');
 
@@ -127,54 +146,74 @@ Tables::QueryResult memdb::Database::insert()
 		std::set<std::string> names;
 		for (const auto& val: table.columns_)
 		{
-			std::cout << val.name << "\n";
 			names.insert(val.name);
 		}
-		std::cout << "\n";
+
 		for (auto& arg: vals)
 		{
 			parser_.set_query(arg);
 			std::shared_ptr<void> ptr;
 
 			std::string col_name;
-			parser_.parse_name(col_name);
-			std::cout << col_name << "\n";
-			parser_.parse_value(table.get_column(col_name).info, ptr);
-			std::cout << "parsed_value\n";
+			if (!parser_.parse_name(col_name))
+			{
+				throw TableException(TE::PARSE_CNAME);
+			}
+			if (!parser_.parse_value(true, table.get(col_name).info, ptr))
+			{
+				throw TableException(TE::PARSE_VAL);
+			}
 
-			table.get_column(col_name).add_value(ptr);
-			std::cout << "value added\n";
+			table.get(col_name).add_value(ptr);
 			names.erase(col_name);
-			std::cout << "one done\n";
 		}
 		for (auto& arg: names)
 		{
-			auto ptr = table.get_column(arg).get_default();
-			table.get_column(arg).add_value(ptr);
+			auto& col = table.get(arg);
+			auto ptr = col.get_default();
+			if (!ptr)
+			{
+				throw TableException(TE::NO_DEFAULT);
+			}
+			col.add_value(ptr);
+			if (col.is_autoinc() && col.info.type == Integer) {(*std::static_pointer_cast<int>(col.default_value_))++;}
 		}
 	} else
 	{
-		int cnt = 0;
+		if (table.columns_.size() != vals.size())
+		{
+			throw TableException(TE::WCNT_VALS);
+		}
 		for (size_t i = 0; i < table.columns_.size(); i++)
 		{
-			parser_.set_query("="+vals[cnt]);
+			parser_.set_query(vals[i]);
 			std::shared_ptr<void> ptr; 
-			std::cout << vals[cnt] << " " << table.columns_[i].info.type << "\n";
-			if (!parser_.parse_value(table.columns_[i].info, ptr))
+			if (!parser_.parse_value(false, table.columns_[i].info, ptr))
 			{
-				ptr = table.columns_[i].get_default();
-			} else {cnt++;}
+				if (parser_.end_of_query())
+				{
+					ptr = table.columns_[i].get_default();
+					if (!ptr)
+					{
+						throw TableException(TE::NO_DEFAULT);
+					}
+				} else
+				{
+					throw TableException(TE::PARSE_VAL);
+				}
+			}
 			table.columns_[i].add_value(ptr);
+			if (table.columns_[i].is_autoinc() && table.columns_[i].info.type == Integer) {(*std::static_pointer_cast<int>(table.columns_[i].default_value_))++;}
 		}
 	}
 	table.rows = 1;
-
-	get_table(name).append(table);
+	get(name).append(table);
 
 	return Tables::QueryResult(table);
 }
 
-Tables::Table& memdb::Database::get_table(std::string name)
+
+Tables::Table& memdb::Database::get(std::string name)
 {
 	for (auto& table: tables_)
 	{
@@ -186,6 +225,12 @@ Tables::Table& memdb::Database::get_table(std::string name)
 	return tables_[0];
 }
 
+
+Tables::QueryResult memdb::Database::select()
+{
+	calculate(tables_[0]);
+	return Tables::QueryResult();
+}
 
 
 Tables::QueryResult memdb::Database::update()
@@ -199,11 +244,6 @@ Tables::QueryResult memdb::Database::remove()
 	return Tables::QueryResult();
 }
 
-
-Tables::QueryResult memdb::Database::select()
-{
-	return Tables::QueryResult();
-}
 
 void memdb::Database::describe()
 {
@@ -219,3 +259,112 @@ void memdb::Database::describe()
 	}
 }
 
+
+std::shared_ptr<void> memdb::Database::calculate(Tables::Table& table)
+{	
+	///////
+	table.get("id");
+	///////
+
+	std::vector<std::shared_ptr<Evaluator>> vec;
+	std::stack<std::shared_ptr<Evaluator>> stack; 
+	std::string token;
+
+	while (parser_.parse_token(token))
+	{
+		if (token == "(")
+		{
+			stack.push(std::make_shared<Evaluator>(nullptr, NODE_TYPE::OPEN_BRACE));
+		}
+		else if (token == ")")
+		{	
+			while (stack.top()->node_type != NODE_TYPE::OPEN_BRACE)
+			{
+				vec.push_back(stack.top());
+				stack.pop();
+			}
+			stack.pop();
+		}
+		else if (TOKEN_TO_OPERATOR.find(token) != TOKEN_TO_OPERATOR.end())
+		{
+			if (stack.empty())
+			{
+				stack.push(std::make_shared<Evaluator>(nullptr, TOKEN_TO_OPERATOR[token]));
+			}
+			else if (prior(TOKEN_TO_OPERATOR[token]) > prior(stack.top()->node_type))
+			{
+				stack.push(std::make_shared<Evaluator>(nullptr, TOKEN_TO_OPERATOR[token]));
+			} else
+			{
+				while (!stack.empty() && prior(TOKEN_TO_OPERATOR[token]) <= prior(stack.top()->node_type))
+				{
+					vec.push_back(stack.top());
+					stack.pop();
+				}
+				stack.push(std::make_shared<Evaluator>(nullptr, TOKEN_TO_OPERATOR[token]));
+			}
+		}
+		else
+		{
+			bool fnd = false;
+			for (auto& col: table.columns_)
+			{
+				if (col.name == token)
+				{
+					vec.push_back(std::make_shared<Evaluator>(col.vec_, NODE_TYPE::COLUMN, col.info.type));
+					fnd = true;
+					break;
+				}
+			}
+			if (fnd) {continue;}
+
+			std::shared_ptr<void> val;
+			Types tp;
+			if (parser_.parse_token_value(Bytes, val, token))        {tp = Bytes;}
+			else if (parser_.parse_token_value(Integer, val, token)) {tp = Integer;}
+			else if (parser_.parse_token_value(Boolean, val, token)) {tp = Boolean;}
+			else if (parser_.parse_token_value(Text, val, token))    {tp = Text;}
+			if (!val)
+			{
+				throw TableException(TE::PARSE_VAL);
+			}
+			vec.push_back(std::make_shared<Evaluator>(val, NODE_TYPE::VALUE, tp));	
+		}
+
+	}
+
+	while (!stack.empty())
+	{
+		vec.push_back(stack.top());
+		stack.pop();
+	}
+
+	std::cout << "Size: " << vec.size() << "\n";
+	for (auto& a: vec)
+	{
+		a->print();
+	}std::cout << "n\n";
+
+
+	for (auto& a: vec)
+	{
+		if (a->node_type == NODE_TYPE::VALUE || a->node_type == NODE_TYPE::COLUMN)
+		{
+			stack.push(a);
+		}
+		else
+		{
+			a->right = stack.top();
+			stack.pop();
+			a->left = stack.top();
+			stack.pop();
+			stack.push(a);
+		}
+	}
+
+	return stack.top()->evaluate();
+}
+
+
+
+	

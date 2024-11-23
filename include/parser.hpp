@@ -28,7 +28,7 @@ namespace Parsing
 		bool parse_type(TypeInfo& type_info);
 		bool parse_colon();
 		bool parse_number(int& number);
-		bool parse_value(TypeInfo type_info, std::shared_ptr<void>& ptr);
+		bool parse_value(bool eq, TypeInfo type_info, std::shared_ptr<void>& ptr);
 		bool parse_values(std::string& values);
 		bool parse_equal_sign();
 		bool parse_space_newline_seq();
@@ -38,8 +38,12 @@ namespace Parsing
 		bool parse_string(std::string str);
 		std::vector<std::string> split_values(const std::string &s, char delim);
 		bool parse_literal(std::string& text);
+		bool end_of_query();
+		bool parse_token(std::string& token);
+		bool parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, std::string token);
+		bool is_end();
 
-	private:
+	//private:
 
 		const char* pos_;
 		const char* end_;

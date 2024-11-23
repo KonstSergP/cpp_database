@@ -13,8 +13,8 @@ struct TypeInfo
 
 	bool operator==(TypeInfo& other);
 	bool operator!=(TypeInfo& other);
-};
 
-char hex_char(char symbol);
-std::string convert_hex_to_char(std::string& hex);	
+	TypeInfo();
+	TypeInfo(Types num);
+};
 

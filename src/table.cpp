@@ -1,13 +1,13 @@
 #include "../include/table.hpp"
 #include "../include/utils.hpp"
 #include <iostream>
+#include <variant>
+#include "../include/ErrorHandler.hpp"
 
 using namespace Tables;
 
-Table::Table()
-{
-	rows = 0;
-}
+Table::Table(): rows(0)
+{}
 
 
 void Table::set_name(std::string st)
@@ -36,32 +36,35 @@ void Table::describe() const
 }
 
 
-Table Table::append(Table& other)
+void Table::append(Table& other)
 {
-	if (columns_.size() != other.columns_.size()) {return Table();}
+	if (columns_.size() != other.columns_.size())
+	{
+		throw TableException(TE::DIFF_COL_NUM);
+	}
 
 	for (size_t i = 0; i < columns_.size(); i++)
 	{
 		if (columns_[i].info != other.columns_[i].info)
 		{
-			return Table();
+			throw TableException(TE::DIFF_COL_TYPE);
 		}
 		if (!columns_[i].can_be_added(other.columns_[i]))
 		{
-			return Table();
+			throw TableException(TE::NO_UNIQUE);
 		}
 	}
-	// good
+
 	for (size_t i = 0; i < columns_.size(); i++)
 	{
 		columns_[i].add_values(other.columns_[i]);
+		if (columns_[i].is_autoinc())
+		{
+			columns_[i].change_default(other.columns_[i]);
+		}
 	}
 
-	std::cout << "Rows: " << rows << " " << other.rows << "\n";
 	rows += other.rows;
-	std::cout << "Rows: " << rows << " " << other.rows << "\n";
-
-	return other;
 }
 
 Table Table::get_structure()
@@ -107,7 +110,7 @@ void Column::set_type(const TypeInfo& type_info)
 		vec_ = std::make_shared<std::vector<std::string>>();
 		break;
 	default:
-		printf("set_type error\n"); exit(-1);
+		throw TableException(TE::UNKNOWN_TYPE);
 	}
 }
 
@@ -116,6 +119,31 @@ void Column::set_default(std::shared_ptr<void> ptr)
 {
 	default_value_ = ptr;
 }
+
+
+#define VALT(x, t) std::static_pointer_cast<t>(x)
+
+void Column::change_default(Column& other)
+{
+	switch (info.type)
+	{
+	case Integer:
+		default_value_ = std::make_shared<int32_t>(*VALT(other.default_value_, int32_t));
+		break;
+	case Boolean:
+		default_value_ = std::make_shared<bool>(*VALT(other.default_value_, bool));
+		break;
+	case Text:
+		default_value_ = std::make_shared<std::string>(*VALT(other.default_value_, std::string));
+		break;
+	case Bytes:
+		default_value_ = std::make_shared<std::string>(*VALT(other.default_value_, std::string));
+		break;
+	default:
+		throw TableException(TE::UNKNOWN_TYPE);
+	}
+}
+
 
 std::string Column::get_type_string() const
 {
@@ -151,6 +179,9 @@ bool Column::can_be_added(Column& other)
 	} else if (info.type == Bytes)
 	{
 		intersect = is_intersecting<std::string>(*this, other);
+	} else
+	{
+		throw TableException(TE::UNKNOWN_TYPE);
 	}
 	return !intersect;
 }
@@ -167,7 +198,6 @@ void Column::add_values(Column& other)
 		auto left = std::static_pointer_cast<std::vector<bool>>(vec_);
 		auto right = std::static_pointer_cast<std::vector<bool>>(other.vec_);
 		std::copy(right->begin(), right->end(), std::back_inserter(*left));
-		std::cout << "A1: " << vec_ << "\n";
 	} else if (info.type == Text)
 	{
 		auto left = std::static_pointer_cast<std::vector<std::string>>(vec_);
@@ -178,6 +208,9 @@ void Column::add_values(Column& other)
 		auto left = std::static_pointer_cast<std::vector<std::string>>(vec_);
 		auto right = std::static_pointer_cast<std::vector<std::string>>(other.vec_);
 		std::copy(right->begin(), right->end(), std::back_inserter(*left));
+	} else
+	{
+		throw TableException(TE::UNKNOWN_TYPE);
 	}
 }
 
@@ -190,7 +223,6 @@ void Column::add_value(std::shared_ptr<void>& ptr)
 		left->push_back(*val);
 	} else if (info.type == Boolean)
 	{	
-		std::cout << "add_value func\n";
 		auto left = std::static_pointer_cast<std::vector<bool>>(vec_);
 		auto val = std::static_pointer_cast<bool>(ptr);
 		left->push_back(*val);
@@ -204,6 +236,9 @@ void Column::add_value(std::shared_ptr<void>& ptr)
 		auto left = std::static_pointer_cast<std::vector<std::string>>(vec_);
 		auto val = std::static_pointer_cast<std::string>(ptr);
 		left->push_back(*val);
+	} else
+	{
+		throw TableException(TE::UNKNOWN_TYPE);
 	}
 }
 
@@ -222,7 +257,7 @@ std::shared_ptr<void> Column::get_default()
 	case Bytes:
 		return std::make_shared<std::string>(*std::static_pointer_cast<std::string>(default_value_));
 	default:
-		printf("get_default error\n"); exit(-1);
+		throw TableException(TE::UNKNOWN_TYPE);
 	}
 }
 
@@ -238,12 +273,26 @@ Column Column::get_structure()
 	return column;
 }
 
+
 bool Column::is_unique() const
 {
 	return attributes & 4;
 }
 
-Column Table::get_column(std::string name)
+
+bool Column::is_autoinc() const
+{
+	return attributes & 2;
+}
+
+
+bool Column::is_key() const
+{
+	return attributes == 5;
+}
+
+
+Column& Table::get(std::string name)
 {
 	for (auto& column: columns_)
 	{
@@ -252,26 +301,51 @@ Column Table::get_column(std::string name)
 			return column;
 		}
 	}
-	return Tables::Column();
+	throw TableException(TE::CNEXIST);
+}
+
+bool QueryResult::is_ok() const
+{
+	return status_ok;
 }
 
 
 QueryResult::QueryResult(Table& table)
 {
-	table_ = std::make_shared<Table>(table);
-}
-
-
-bool QueryResult::is_ok() const
-{
-	return status;
+	status_ok = true;
+	var = std::make_shared<Table>(table);
 }
 
 
 QueryResult::QueryResult()
 {
-	status = true;
+	status_ok = false;
 }
+
+QueryResult::QueryResult(TableException& e)
+{
+	status_ok = false;
+	var = e;
+}
+
+
+void QueryResult::what()
+{
+	std::cout << std::get<TableException>(var).what();
+}
+
+
+Table::TableIterator QueryResult::begin()
+{
+	return std::get<std::shared_ptr<Table>>(var)->begin();
+}
+
+
+Table::TableIterator QueryResult::end()
+{
+	return std::get<std::shared_ptr<Table>>(var)->end();
+}
+
 
 Table::TableIterator::TableIterator(int ind, Table* ptr): index(ind), ptr_(ptr)
 {}
@@ -319,16 +393,4 @@ Table::TableIterator Table::begin()
 Table::TableIterator Table::end()
 {
 	return Table::TableIterator(rows, this);
-}
-
-
-Table::TableIterator QueryResult::begin()
-{
-	return table_->begin();
-}
-
-
-Table::TableIterator QueryResult::end()
-{
-	return table_->end();
 }

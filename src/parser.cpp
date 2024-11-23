@@ -71,7 +71,7 @@ bool Parser::parse_command(std::string& command)
 	std::regex pat("CREATE|SELECT|INSERT|UPDATE|DELETE", std::regex::icase);
 
 	bool success = parse_pattern(pat, command);
-	std::cout << "parse_command: " << command << "\n";
+	std::transform(command.begin(), command.end(), command.begin(), ::toupper);
 	return success;
 }
 
@@ -94,6 +94,7 @@ bool Parser::parse_creation(std::string& name)
 	std::regex pat("TABLE|INDEX", std::regex::icase);
 
 	bool success = parse_pattern(pat, name);
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
 	return success;
 }
 
@@ -118,17 +119,16 @@ bool Parser::parse_attributes(int& flags)
 				flags |= 4;
 			} else
 			{
-				printf("parse_attributes erorr\n"); exit(-1);
+				return false;
 			}
 			parse_comma();
 		}
-		if (!parse_close_fig()) {printf("error in parse_close_fig\n"); exit(-1);}
+		if (!parse_close_fig()) {return false;}
 	}
 	else
 	{
 		flags = 0;
 	}
-	std::cout << "Flags: " << flags << "\n";
 	return true;
 }
 
@@ -185,42 +185,49 @@ bool Parser::parse_type(TypeInfo& type_info)
 	std::string type;
 	std::regex pat("int32|bool|string|bytes");
 	bool success = parse_pattern(pat, type);
-	if (!success) {exit(-1);}
+	if (!success) {return false;}
 
 	if (type == "int32")
 	{
 		type_info.type = Integer;
 		type_info.length = 1;
-	}
-	if (type == "bool")
+		return true;
+	} else if (type == "bool")
 	{
 		type_info.type = Boolean;
 		type_info.length = 1;
+		return true;
 	}
 	int len;
-	parse_array_len(len);
+	if (!parse_array_len(len))
+	{
+		return false;
+	}
 
 	if (type == "string")
 	{
 		type_info.type = Text;
 		type_info.length = len;
-	}
-	if (type == "bytes")
+	} else if (type == "bytes")
 	{
 		type_info.type = Bytes;
 		type_info.length = len;
+	} else
+	{
+		return false;
 	}
 
-	return success;
+	return true;
 }
 
 
 bool Parser::parse_array_len(int& len)
 {
 	parse_space_newline_seq();
-	parse_pattern(std::regex("\\["));
-	bool success = parse_number(len);
-	parse_pattern(std::regex("\\]"));
+	bool success = true;
+	success &= parse_pattern(std::regex("\\["));
+	success &= parse_number(len);
+	success &= parse_pattern(std::regex("\\]"));
 
 	return success;
 }
@@ -242,22 +249,23 @@ bool Parser::parse_number(int& number)
 }
 
 
-bool Parser::parse_value(TypeInfo type_info, std::shared_ptr<void>& ptr)
+bool Parser::parse_value(bool eq, TypeInfo type_info, std::shared_ptr<void>& ptr)
 {
 	bool success;
+	parse_space_newline_seq();
+	if (eq)
+	{
+		if (!parse_equal_sign()) {return false;}
+	}
 
-	if (!parse_equal_sign()) {return true;}
-	std::cout << "Exists default value\n";
 	if (type_info.type == Integer)
 	{
-		std::cout << "AAA\n";
 		std::shared_ptr<int> number = std::make_shared<int>();
 		success = parse_number(*number);
 		ptr = number;
 	} else if (type_info.type == Boolean)
 	{
 		std::shared_ptr<bool> value = std::make_shared<bool>();
-		std::cout << "Parsing boolean\n";
 		success = parse_bool(*value);
 		ptr = value;
 	} else if (type_info.type == Text)
@@ -272,8 +280,7 @@ bool Parser::parse_value(TypeInfo type_info, std::shared_ptr<void>& ptr)
 		ptr = vec;
 	} else
 	{
-		printf("Все плохо 5\n");
-		exit(-1);
+		success = false;
 	}
 
 	return success;
@@ -306,7 +313,6 @@ bool Parser::parse_literal(std::string& text)
 	{
 		text = std::string(val.begin()+1, val.begin()+(val.size()-1));
 	}
-
 	return success;
 }
 
@@ -332,14 +338,7 @@ bool Parser::parse_bytes(std::string& text)
 bool Parser::parse_hex(std::string& text)
 {
 	std::regex pat("0x[0-9a-fA-F]+");
-	std::string val;
-	bool success = parse_pattern(pat, val);
-
-	if (success)
-	{
-		text = convert_hex_to_char(val);
-	}
-
+	bool success = parse_pattern(pat, text);
 	return success;
 }
 
@@ -402,3 +401,34 @@ std::vector<std::string> Parser::split_values(const std::string &s, char delim)
         return elems;
 }
 
+
+bool Parser::end_of_query()
+{
+	return pos_ == end_;
+}
+
+
+bool Parser::parse_token(std::string& token)
+{
+	parse_space_newline_seq();
+	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\".*\"|[\\+\\-\\*/%><=]|\\&\\&|\\^\\^|>=|<=|!=|[a-zA-Z_]+");
+	bool success = parse_pattern(pat, token);
+	return success;
+}
+
+
+bool Parser::parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, std::string token)
+{
+	const char* old_ptr = pos_, *old_end = end_;
+	pos_ = token.c_str(); end_ = token.c_str()+token.size();
+
+	bool success = parse_value(false, type_info, ptr);
+	pos_ = old_ptr; end_ = old_end;
+	return success;
+}
+
+
+bool Parser::is_end()
+{
+	return pos_ == end_;
+}

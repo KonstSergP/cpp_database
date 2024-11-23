@@ -4,6 +4,7 @@
 #include "table.hpp"
 #include "parser.hpp"
 #include "utils.hpp"
+#include "ErrorHandler.hpp"
 #include <map>
 
 namespace memdb
@@ -11,14 +12,12 @@ namespace memdb
 	class Database
 	{
 	public:
-		//Database();
-		//~Database();
 
 		Tables::QueryResult execute(std::string query);
 		void describe();
-		Tables::Table& get_table(std::string name);
+		Tables::Table& get(std::string name);
 
-	private:
+	//private:
 		
 		std::vector<Tables::Table> tables_;
 		Parsing::Parser parser_; 
@@ -30,5 +29,6 @@ namespace memdb
 		Tables::QueryResult remove();
 		Tables::QueryResult select();
 		Tables::Column make_column();
+		std::shared_ptr<void> calculate(Tables::Table& table);
 	};
 }

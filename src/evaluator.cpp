@@ -1,6 +1,6 @@
 #include <iostream>
-#include "../include/utils.hpp"
-#include "../include/evaluator.hpp"
+#include "../include/utils.h"
+#include "../include/evaluator.h"
 #include <map>
 
 

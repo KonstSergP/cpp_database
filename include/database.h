@@ -1,10 +1,10 @@
 #pragma once
 
-#include "parser.hpp"
-#include "table.hpp"
-#include "parser.hpp"
-#include "utils.hpp"
-#include "ErrorHandler.hpp"
+#include "parser.h"
+#include "table.h"
+#include "parser.h"
+#include "utils.h"
+#include "ErrorHandler.h"
 #include <map>
 
 namespace memdb

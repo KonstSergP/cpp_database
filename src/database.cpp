@@ -3,10 +3,10 @@
 #include <stack>
 #include <limits>
 #include <memory>
-#include "../include/database.hpp"
-#include "../include/utils.hpp"
-#include "../include/ErrorHandler.hpp"
-#include "../include/evaluator.hpp"
+#include "../include/database.h"
+#include "../include/utils.h"
+#include "../include/ErrorHandler.h"
+#include "../include/evaluator.h"
 
 
 

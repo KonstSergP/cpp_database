@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
-#include "utils.hpp"
-#include "table.hpp"
+#include "utils.h"
+#include "table.h"
 
 
 enum class NODE_TYPE

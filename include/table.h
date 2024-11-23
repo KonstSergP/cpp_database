@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utils.hpp"
-#include "ErrorHandler.hpp"
+#include "utils.h"
+#include "ErrorHandler.h"
 #include <vector>
 #include <map>
 #include <memory>

@@ -1,8 +1,8 @@
-#include "../include/table.hpp"
-#include "../include/utils.hpp"
+#include "../include/table.h"
+#include "../include/utils.h"
 #include <iostream>
 #include <variant>
-#include "../include/ErrorHandler.hpp"
+#include "../include/ErrorHandler.h"
 
 using namespace Tables;
 

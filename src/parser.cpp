@@ -4,8 +4,8 @@
 #include <string>
 #include <cstdint>
 
-#include "../include/parser.hpp"
-#include "../include/utils.hpp"
+#include "../include/parser.h"
+#include "../include/utils.h"
 
 using namespace Parsing;
 

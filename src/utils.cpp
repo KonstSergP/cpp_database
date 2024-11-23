@@ -1,4 +1,4 @@
-#include "../include/utils.hpp"
+#include "../include/utils.h"
 
 
 const char* TypeNames[] = {"int32", "boolean", "string", "bytes"};

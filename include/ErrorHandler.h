@@ -20,7 +20,9 @@ enum class TE
     DIFF_COL_NUM,
     DIFF_COL_TYPE,
     UNKNOWN_TYPE,
-    CNEXIST
+    CNEXIST,
+    TNEXIST,
+    WRONG_EXPRS
 };
 
 

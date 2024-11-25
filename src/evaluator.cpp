@@ -1,28 +1,32 @@
 #include <iostream>
 #include "../include/utils.h"
 #include "../include/evaluator.h"
+#include "../include/ErrorHandler.h"
 #include <map>
 
 
 std::map<std::string, NODE_TYPE> TOKEN_TO_OPERATOR = 
 {
-	{"+", NODE_TYPE::ADDITION},
-	{"-", NODE_TYPE::SUBSTRACTION},
-	{"*", NODE_TYPE::MULTYPLICATION},
-	{"/", NODE_TYPE::DIVISION},
-	{"%", NODE_TYPE::MOD},
-	{"<", NODE_TYPE::LESS},
-	{"=", NODE_TYPE::EQUAL},
-	{">", NODE_TYPE::GREATER},
+	{"+",  NODE_TYPE::ADDITION},
+	{"-",  NODE_TYPE::SUBSTRACTION},
+	{"*",  NODE_TYPE::MULTYPLICATION},
+	{"/",  NODE_TYPE::DIVISION},
+	{"%",  NODE_TYPE::MOD},
+	{"<",  NODE_TYPE::LESS},
+	{"=",  NODE_TYPE::EQUAL},
+	{">",  NODE_TYPE::GREATER},
 	{"<=", NODE_TYPE::LE},
 	{">=", NODE_TYPE::GE},
 	{"!=", NODE_TYPE::N_EQUAL},
 	{"&&", NODE_TYPE::AND},
 	{"||", NODE_TYPE::OR},
-	{"!", NODE_TYPE::NOT},
+	{"!",  NODE_TYPE::NOT},
 	{"^^", NODE_TYPE::XOR},
-	{"|", NODE_TYPE::ABS},
-	{"(", NODE_TYPE::OPEN_BRACE}
+	{"|",  NODE_TYPE::ABS},
+	{"(",  NODE_TYPE::OPEN_BRACE},
+	{"&&", NODE_TYPE::AND},
+	{"||", NODE_TYPE::OR},
+	{"^^", NODE_TYPE::XOR}
 };
 
 
@@ -32,21 +36,35 @@ int prior(NODE_TYPE type)
 	{
     case NODE_TYPE::MULTYPLICATION:
     case NODE_TYPE::DIVISION:
-        return 4;
+    case NODE_TYPE::MOD:
+        return 3;
     case NODE_TYPE::SUBSTRACTION:
     case NODE_TYPE::ADDITION:
-        return 3;
+        return 4;
+    case NODE_TYPE::LESS:
+    case NODE_TYPE::GREATER:
+    case NODE_TYPE::LE:
+    case NODE_TYPE::GE:
+    	return 6;
     case NODE_TYPE::EQUAL:
-    	return 2;
+    case NODE_TYPE::N_EQUAL:
+    	return 7;
+    case NODE_TYPE::XOR:
+    	return 9;
+    case NODE_TYPE::AND:
+    	return 11;
+    case NODE_TYPE::OR:
+    	return 12;
     case NODE_TYPE::OPEN_BRACE:
-        return 1;
+        return 20;
     default:
     	return 0;
 	}
 }
 
-std::shared_ptr<std::vector<int>> arithm_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type);
-std::shared_ptr<std::vector<bool>> equal(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type);
+static std::shared_ptr<void> arithm_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt);
+static std::shared_ptr<void> comparison(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type, NODE_TYPE tp, Evaluator* pt);
+static std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt);
 
 Evaluator::Evaluator(std::shared_ptr<void> ptr, NODE_TYPE type): node_type(type), ptr_(ptr)
 {}
@@ -56,14 +74,41 @@ Evaluator::Evaluator(std::shared_ptr<void> ptr, NODE_TYPE type, Types val_type):
 {}
 
 
-std::shared_ptr<void> Evaluator::evaluate()
+template<typename T>
+static std::shared_ptr<void> choose(std::shared_ptr<void> col, std::shared_ptr<std::vector<bool>> vc)
 {
-	if (node_type == NODE_TYPE::VALUE || node_type == NODE_TYPE::COLUMN)
+	auto a = std::static_pointer_cast<std::vector<T>>(col);
+	auto res = std::make_shared<std::vector<T>>();
+	for (size_t i = 0; i < vc->size(); i++)
 	{
+		if ((*vc)[i])
+		{
+			res->push_back((*a)[i]);
+		}
+	}
+	return res;
+}
+
+
+std::shared_ptr<void> Evaluator::evaluate(std::shared_ptr<std::vector<bool>> vc)
+{
+	if (node_type == NODE_TYPE::VALUE) {
 		return ptr_;
 	}
-	auto x = left->evaluate(); 	Types lt = left->value_type;
-	auto y = right->evaluate(); //Types rt = right->value_type;
+	if (node_type == NODE_TYPE::COLUMN)
+	{
+		if (!vc) {return ptr_;}
+		switch (value_type)
+		{
+		case Integer: ptr_ = choose<int>(ptr_, vc); break;
+		case Boolean: ptr_ = choose<bool>(ptr_, vc); break;
+		case Text:    ptr_ = choose<std::string>(ptr_, vc); break;
+		case Bytes:   ptr_ = choose<std::string>(ptr_, vc); break;
+		}
+		return ptr_;
+	}
+	auto x = left->evaluate(vc); 	Types lt = left->value_type;
+	auto y = right->evaluate(vc); //Types rt = right->value_type;
 	std::shared_ptr<void> result;
 
 	bool l_v = (left->node_type == NODE_TYPE::VALUE), r_v = (right->node_type == NODE_TYPE::VALUE);
@@ -73,44 +118,83 @@ std::shared_ptr<void> Evaluator::evaluate()
 	case NODE_TYPE::ADDITION:
 	case NODE_TYPE::SUBSTRACTION:
 	case NODE_TYPE::MULTYPLICATION:
-	case NODE_TYPE::DIVISION:       value_type = Integer; ptr_ = arithm_op(x, y, l_v, r_v, node_type); break;
-	case NODE_TYPE::EQUAL:			value_type = Boolean; ptr_ = equal(x, y, l_v, r_v, lt); break;
-	default: ptr_ = std::make_shared<std::vector<int>>();
+	case NODE_TYPE::DIVISION:
+	case NODE_TYPE::MOD:            value_type = Integer; ptr_ = arithm_op(x, y, l_v, r_v, node_type, this); break;
+	case NODE_TYPE::EQUAL:
+	case NODE_TYPE::N_EQUAL:
+	case NODE_TYPE::LESS:
+	case NODE_TYPE::GREATER:
+	case NODE_TYPE::LE:
+	case NODE_TYPE::GE:  			value_type = Boolean; ptr_ = comparison(x, y, l_v, r_v, lt, node_type, this); break;
+	case NODE_TYPE::AND:
+	case NODE_TYPE::OR:
+	case NODE_TYPE::XOR:			value_type = Boolean; ptr_ = logical_op(x, y, l_v, r_v, node_type, this); break;
+	default: value_type = Integer; ptr_ = std::make_shared<std::vector<int>>();
 	}
 	return ptr_;
 }
+
+
+template<typename T>
+static std::shared_ptr<std::vector<T>> repeat(std::shared_ptr<void> val, int n)
+{
+	auto a = std::make_shared<std::vector<T>>();
+	auto value = std::static_pointer_cast<T>(val);
+	for (int i = 0; i < n; i++) {
+		a->push_back(*value);
+	}
+	return a;
+}
+
+
+
+std::shared_ptr<void> EvaluatorHead::evaluate(std::shared_ptr<std::vector<bool>> vc)
+{
+	ptr_ = left->evaluate(vc);
+	if (left->node_type == NODE_TYPE::VALUE)
+	{
+		switch (value_type)
+		{
+		case Integer: ptr_ = repeat<int>(ptr_, vc->size()); break;
+		case Boolean: ptr_ = repeat<int>(ptr_, vc->size()); break;
+		case Text:    ptr_ = repeat<int>(ptr_, vc->size()); break;
+		case Bytes:   ptr_ = repeat<int>(ptr_, vc->size()); break;
+		}
+	}
+	return ptr_;
+}
+
 
 void Evaluator::print()
 {
 	for (auto& [k, v]: TOKEN_TO_OPERATOR)
 	{
-		if (v == node_type)
-		{
+		if (v == node_type) {
 			std::cout << k << " ";
 		}
 	}
-	if (node_type == NODE_TYPE::COLUMN)
-	{
+	if (node_type == NODE_TYPE::COLUMN) {
 		std::cout << "column " << TypeNames[value_type] << " ";
 	}
-	if (node_type == NODE_TYPE::VALUE)
-	{
+	if (node_type == NODE_TYPE::VALUE) {
 		std::cout << "value " << TypeNames[value_type] << " ";
 	}
 }
 
 
-int plus(int a, int b) {return a+b;}
-int minus(int a, int b) {return a-b;}
-int multyply(int a, int b) {return a*b;}
-int divide(int a, int b) {return a/b;}
+static int plus(int a, int b) {return a+b;}
+static int minus(int a, int b) {return a-b;}
+static int multyply(int a, int b) {return a*b;}
+static int divide(int a, int b) {return a/b;}
+static int mod(int a, int b) {return a%b;}
 
 std::map<NODE_TYPE, int(*)(int,int)> math_ops =
 {
 	{NODE_TYPE::ADDITION, plus},
 	{NODE_TYPE::SUBSTRACTION, minus},
 	{NODE_TYPE::MULTYPLICATION, multyply},
-	{NODE_TYPE::DIVISION, divide}
+	{NODE_TYPE::DIVISION, divide},
+	{NODE_TYPE::MOD, mod}
 };
 
 
@@ -119,9 +203,8 @@ std::map<NODE_TYPE, int(*)(int,int)> math_ops =
 #define VECT(x, t) std::static_pointer_cast<std::vector<t>>(x)
 #define VALT(x, t) std::static_pointer_cast<t>(x)
 
-std::shared_ptr<std::vector<int>> arithm_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type)
+static std::shared_ptr<void> arithm_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt)
 {
-	std::cout << "arithm_op " << l_v << " " << r_v << "\n";
 	size_t sz; if (l_v && r_v) {sz = 1;} else if (l_v) {sz = VECI(y)->size();} else if (r_v) {sz = VECI(x)->size();} else {sz = VECI(x)->size();}
 	auto z = std::vector<int>(sz);
 	for (size_t i = 0; i < sz; i++)
@@ -131,12 +214,19 @@ std::shared_ptr<std::vector<int>> arithm_op(std::shared_ptr<void> x, std::shared
 		z[i] = math_ops[n_type](a, b);
 		std::cout << a << " " << b << " " << z[i] << "\n";
 	}
-	return std::make_shared<std::vector<int>>(std::move(z));
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<int>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<int>>(std::move(z));
+	}
 }
 
 
 template<typename T>
-std::shared_ptr<std::vector<bool>> compare(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v)
+static std::shared_ptr<void> compare(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE tp, Evaluator* pt)
 {
 	size_t sz; if (l_v && r_v) {sz = 1;} else if (l_v) {sz = VECT(y, T)->size();} else if (r_v) {sz = VECT(x, T)->size();} else {sz = VECT(x, T)->size();}
 	auto z = std::vector<bool>(sz);
@@ -144,26 +234,78 @@ std::shared_ptr<std::vector<bool>> compare(std::shared_ptr<void> x, std::shared_
 	{
 		T a = (l_v) ? *VALT(x, T) : (*VECT(x, T))[i];
 		T b = (r_v) ? *VALT(y, T) : (*VECT(y, T))[i];
-		z[i] = (a == b);
-		std::cout << "eq: " << z[i] << "\n";
+		switch (tp)
+		{
+		case NODE_TYPE::EQUAL:
+			z[i] = (a == b); break;
+		case NODE_TYPE::N_EQUAL:
+			z[i] = (a != b); break;
+		case NODE_TYPE::LESS:
+			z[i] = (a < b); break;
+		case NODE_TYPE::GREATER:
+			z[i] = (a > b); break;
+		case NODE_TYPE::LE:
+			z[i] = (a <= b); break;
+		case NODE_TYPE::GE:
+			z[i] = (a >= b); break;
+		default: break;
+		}
 	}
 
-	return std::make_shared<std::vector<bool>>(std::move(z));
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<bool>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<bool>>(std::move(z));
+	}
 }
 
 
-std::shared_ptr<std::vector<bool>> equal(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type)
+static std::shared_ptr<void> comparison(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type, NODE_TYPE tp, Evaluator* pt)
 {
-	if (type == Integer)
-	{
-		return compare<int>(x, y, l_v, r_v);
+	if (type == Integer) {
+		return compare<int>(x, y, l_v, r_v, tp, pt);
 	}
-	else if (type == Boolean)
-	{
-		return compare<bool>(x, y, l_v, r_v);
+	else if (type == Boolean) {
+		return compare<bool>(x, y, l_v, r_v, tp, pt);
 	}
-	else
+	else {
+		return compare<std::string>(x, y, l_v, r_v, tp, pt);
+	}
+}
+
+
+static bool func_and(bool a, bool b) {return a && b;}
+static bool func_or(bool a, bool b) {return a || b;}
+static bool func_xor(bool a, bool b) {return a ^ b;}
+
+std::map<NODE_TYPE, bool(*)(bool,bool)> log_ops =
+{
+	{NODE_TYPE::AND, func_and},
+	{NODE_TYPE::OR, func_or},
+	{NODE_TYPE::XOR, func_xor}
+};
+
+
+std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt)
+{
+	size_t sz; if (l_v && r_v) {sz = 1;} else if (l_v) {sz = VECT(y, bool)->size();} else if (r_v) {sz = VECT(x, bool)->size();} else {sz = VECT(x, bool)->size();}
+	auto z = std::vector<bool>(sz);
+	for (size_t i = 0; i < sz; i++)
 	{
-		return compare<std::string>(x, y, l_v, r_v);
+		bool a = (l_v) ? *VALT(x, bool) : (*VECT(x, bool))[i];
+		bool b = (r_v) ? *VALT(y, bool) : (*VECT(y, bool))[i];
+		z[i] = log_ops[n_type](a, b);
+		std::cout << a << " " << b << " " << z[i] << "\n";
+	}
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<bool>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<bool>>(std::move(z));
 	}
 }

@@ -6,7 +6,7 @@ const char* TypeNames[] = {"int32", "boolean", "string", "bytes"};
 
 bool TypeInfo::operator==(TypeInfo& other)
 {
-	return (type == other.type) && (length == other.length);
+	return (type == other.type);
 }
 
 bool TypeInfo::operator!=(TypeInfo& other)

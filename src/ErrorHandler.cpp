@@ -19,7 +19,9 @@ std::map<TE, std::string> TE_messages =
 	{TE::DIFF_COL_NUM, "Tables have different number of columns\n"},
 	{TE::DIFF_COL_TYPE,"Columns have different types\n"},
 	{TE::UNKNOWN_TYPE, "Column has unknown type\n"},
-	{TE::CNEXIST, 	   "Column with this name does not exist\n"}
+	{TE::CNEXIST, 	   "Column with this name does not exist\n"},
+	{TE::TNEXIST,      "Table with this name does not exist\n"},
+	{TE::WRONG_EXPRS,  "Can\'t read expression to calculate\n"}
 };
 
 

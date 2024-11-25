@@ -5,11 +5,13 @@ CXXFLAGS = \
 	-std=c++20 \
 	-Wall      \
 	-Wextra    \
-	-Werror
+	-Werror \
+	-g3 \
+	-O0 \
+	-fsanitize=undefined,address
 
-ifeq ($(DEBUG),1)
-	CXXFLAGS += -g
-endif
+LDFLAGS = \
+		-fsanitize=undefined,address
 
 BRED    = \033[1;31m
 BGREEN  = \033[1;32m
@@ -41,7 +43,7 @@ EXECUTABLE := $(OBJDIR)/main
 $(OBJDIR)/%: %.cpp $(OBJECTS)
 	@printf "$(BYELLOW)Building object file $(BCYAN)$@$(RESET)\n"
 	@mkdir -p build
-	@$(CXX) -c $< $(CXXFLAGS) -o $@.o
+	$(CXX) -c $< $(CXXFLAGS) -o $@.o
 	@printf "$(BYELLOW)Linking executable $(BCYAN)$@$(RESET)\n"
 	@$(CXX) $(LDFLAGS) $(OBJECTS) $@.o -o $@
 

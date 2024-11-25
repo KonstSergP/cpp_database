@@ -23,7 +23,7 @@ namespace Parsing
 		bool parse_command(std::string& command);
 		bool parse_name(std::string& name);
 		bool parse_creation(std::string& name);
-		bool parse_attributes(int& flags);
+		bool parse_attributes(bool& k, bool& u, bool& a);
 		bool parse_comma();
 		bool parse_type(TypeInfo& type_info);
 		bool parse_colon();
@@ -42,6 +42,7 @@ namespace Parsing
 		bool parse_token(std::string& token);
 		bool parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, std::string token);
 		bool is_end();
+		bool parse_before_from(std::vector<std::string>& vec);
 
 	//private:
 

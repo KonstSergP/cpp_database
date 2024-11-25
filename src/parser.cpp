@@ -99,9 +99,8 @@ bool Parser::parse_creation(std::string& name)
 }
 
 
-bool Parser::parse_attributes(int& flags)
+bool Parser::parse_attributes(bool& k, bool& u, bool& a)
 {
-	flags = 0;
 	parse_space_newline_seq();
 	if (parse_open_fig())
 	{
@@ -110,13 +109,14 @@ bool Parser::parse_attributes(int& flags)
 		{
 			if (attribute == "key")
 			{
-				flags |= 5;
+				k = true;
+				u = true;
 			} else if (attribute == "autoincrement")
 			{
-				flags |= 2;
+				a = true;
 			} else if (attribute == "unique")
 			{
-				flags |= 4;
+				u = true;
 			} else
 			{
 				return false;
@@ -124,10 +124,6 @@ bool Parser::parse_attributes(int& flags)
 			parse_comma();
 		}
 		if (!parse_close_fig()) {return false;}
-	}
-	else
-	{
-		flags = 0;
 	}
 	return true;
 }
@@ -253,8 +249,7 @@ bool Parser::parse_value(bool eq, TypeInfo type_info, std::shared_ptr<void>& ptr
 {
 	bool success;
 	parse_space_newline_seq();
-	if (eq)
-	{
+	if (eq) {
 		if (!parse_equal_sign()) {return false;}
 	}
 
@@ -278,9 +273,6 @@ bool Parser::parse_value(bool eq, TypeInfo type_info, std::shared_ptr<void>& ptr
 		std::shared_ptr<std::string> vec = std::make_shared<std::string>();
 		success = parse_bytes(*vec);
 		ptr = vec;
-	} else
-	{
-		success = false;
 	}
 
 	return success;
@@ -411,7 +403,7 @@ bool Parser::end_of_query()
 bool Parser::parse_token(std::string& token)
 {
 	parse_space_newline_seq();
-	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\".*\"|[\\+\\-\\*/%><=]|\\&\\&|\\^\\^|>=|<=|!=|[a-zA-Z_]+");
+	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\".*\"|\\&\\&|\\^\\^|\\|\\||>=|<=|!=|[\\+\\-\\*/%><=]|[a-zA-Z_]+");
 	bool success = parse_pattern(pat, token);
 	return success;
 }
@@ -431,4 +423,17 @@ bool Parser::parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, s
 bool Parser::is_end()
 {
 	return pos_ == end_;
+}
+
+
+bool Parser::parse_before_from(std::vector<std::string>& vec)
+{
+	std::string res;
+	parse_space_newline_seq();
+	std::regex pat(".+(from|FROM)");
+	bool success = parse_pattern(pat, res);
+	if (!success) {return false;}
+	res = std::string(res.begin(), res.begin()+(res.size()-4));
+	vec = split_values(res, ',');
+	return success;
 }

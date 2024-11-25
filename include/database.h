@@ -2,9 +2,11 @@
 
 #include "parser.h"
 #include "table.h"
+#include "column.h"
 #include "parser.h"
 #include "utils.h"
 #include "ErrorHandler.h"
+#include "evaluator.h"
 #include <map>
 
 namespace memdb
@@ -28,7 +30,7 @@ namespace memdb
 		Tables::QueryResult update();
 		Tables::QueryResult remove();
 		Tables::QueryResult select();
-		Tables::Column make_column();
-		std::shared_ptr<void> calculate(Tables::Table& table);
+		std::shared_ptr<Columns::Column> make_column();
+		std::shared_ptr<Evaluator> calculate(Tables::Table& table);
 	};
 }

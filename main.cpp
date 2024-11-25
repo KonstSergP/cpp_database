@@ -33,21 +33,39 @@ int main()
 	db.describe();
 	std::cout << "\n\n\n\n\n";
 
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 30; i++)
 	{
 		std::string query = "INSERT (login = \"" + random_string(15) + "\", password_hash = 0x" + random_string(10) + ") to first";
 		db.execute(query);
 	}
+	auto res = db.execute("INSERT (200, \"kostya\", 0xaaaabbbb, true) to first");
+	if (!res.is_ok())
+	{
+		res.what();
+	}
+	db.execute("INSERT (login = \"test\", password_hash = 0xbebebe) to first");
+
+	
+	auto sel = db.execute("SELECT id, login from first WHERE id / 10 = id - 9");
+	for (auto& row: sel)
+	{
+		std::cout << "Val: " << row.get<int32_t>("1") << " " << row.get<std::string>("2") << "\n";
+	}
+
 
 	for (auto& row: db.get("first"))
 	{
 		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
 	}
-
-	
-
-	
-
+	auto r = db.execute("DELETE first WHERE id % 3 = 2");
+	for (auto& row: db.get("first"))
+	{
+		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
+	}
+	for (auto& row: r)
+	{
+		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
+	}
 	return 0;
 }
 

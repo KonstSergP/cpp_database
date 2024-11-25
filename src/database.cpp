@@ -56,40 +56,34 @@ Tables::QueryResult memdb::Database::execute(std::string query)
 }
 
 
-Tables::Column memdb::Database::make_column()
+std::shared_ptr<Columns::Column> memdb::Database::make_column()
 {
-	Tables::Column column;
+	bool key = false, unique = false, autoinc = false;
+	std::string name;
+	TypeInfo type_info;
 
-	int flags;
-	if (!parser_.parse_attributes(flags))
-	{
+	if (!parser_.parse_attributes(key, unique, autoinc)) {
 		throw TableException(TE::PARSE_ATTR);
 	}
-	column.set_attributes(flags);
-
-	std::string name;
-	if (!parser_.parse_name(name))
-	{
+	if (!parser_.parse_name(name)) {
 		throw TableException(TE::PARSE_CNAME);
 	}
-	column.set_name(name);
-
-	TypeInfo type_info;
-	if (!parser_.parse_type(type_info))
-	{
+	if (!parser_.parse_type(type_info)) {
 		throw TableException(TE::PARSE_TYPE);
 	}
-	column.set_type(type_info);
+
+	auto column = Columns::CreateColumn(type_info);
+	column->set_name(name);
+	column->set_attributes(key, unique, autoinc);
 
 	std::shared_ptr<void> ptr;
 	if (parser_.parse_equal_sign())
 	{
-		if(!parser_.parse_value(false, type_info, ptr))
-		{
+		if(!parser_.parse_value(false, type_info, ptr)) {
 			throw TableException(TE::PARSE_VAL);
 		}
 	}
-	column.set_default(ptr);
+	column->set_default(ptr);
 	parser_.parse_comma();
 
 	return column;
@@ -113,27 +107,25 @@ Tables::QueryResult memdb::Database::create_table()
 	}
 	while (!parser_.parse_close())
 	{
-		Tables::Column column = make_column();
+		auto column = make_column();
 		table.add_column(column);
 	}
 
 	tables_.push_back(table);
 
-	return Tables::QueryResult(table);
+	return Tables::QueryResult(std::make_shared<Tables::Table>(table));
 }
 
 
 Tables::QueryResult memdb::Database::insert()
 {
 	std::string values, name;
-	if (!parser_.parse_values(values))
-	{
+	if (!parser_.parse_values(values)) {
 		throw TableException(TE::PARSE_VALS);
 	}
 	parser_.parse_string("to");
 
-	if (!parser_.parse_name(name))
-	{
+	if (!parser_.parse_name(name)) {
 		throw TableException(TE::PARSE_TNAME);
 	}
 
@@ -144,9 +136,8 @@ Tables::QueryResult memdb::Database::insert()
 	if (vals[0].find("=") != ULONG_MAX)
 	{
 		std::set<std::string> names;
-		for (const auto& val: table.columns_)
-		{
-			names.insert(val.name);
+		for (const auto& val: table.columns_) {
+			names.insert(val->name);
 		}
 
 		for (auto& arg: vals)
@@ -155,61 +146,63 @@ Tables::QueryResult memdb::Database::insert()
 			std::shared_ptr<void> ptr;
 
 			std::string col_name;
-			if (!parser_.parse_name(col_name))
-			{
+			if (!parser_.parse_name(col_name)) {
 				throw TableException(TE::PARSE_CNAME);
 			}
-			if (!parser_.parse_value(true, table.get(col_name).info, ptr))
-			{
+			if (!parser_.parse_value(true, table.get(col_name)->info, ptr)) {
 				throw TableException(TE::PARSE_VAL);
 			}
 
-			table.get(col_name).add_value(ptr);
+			table.get(col_name)->add_value(ptr);
 			names.erase(col_name);
 		}
 		for (auto& arg: names)
 		{
-			auto& col = table.get(arg);
-			auto ptr = col.get_default();
-			if (!ptr)
-			{
+			auto col = table.get(arg);
+			auto ptr = col->get_default();
+			if (!ptr) {
 				throw TableException(TE::NO_DEFAULT);
 			}
-			col.add_value(ptr);
-			if (col.is_autoinc() && col.info.type == Integer) {(*std::static_pointer_cast<int>(col.default_value_))++;}
+			col->add_value(ptr);
+			if (col->is_autoinc() && col->info.type == Integer)
+			{
+				(*std::static_pointer_cast<int>(ptr))++;
+				col->set_default(ptr);
+			}
 		}
 	} else
 	{
-		if (table.columns_.size() != vals.size())
-		{
+		if (table.columns_.size() != vals.size()) {
 			throw TableException(TE::WCNT_VALS);
 		}
 		for (size_t i = 0; i < table.columns_.size(); i++)
 		{
 			parser_.set_query(vals[i]);
 			std::shared_ptr<void> ptr; 
-			if (!parser_.parse_value(false, table.columns_[i].info, ptr))
+			if (!parser_.parse_value(false, table.columns_[i]->info, ptr))
 			{
 				if (parser_.end_of_query())
 				{
-					ptr = table.columns_[i].get_default();
-					if (!ptr)
-					{
+					ptr = table.columns_[i]->get_default();
+					if (!ptr) {
 						throw TableException(TE::NO_DEFAULT);
 					}
-				} else
-				{
+				} else {
 					throw TableException(TE::PARSE_VAL);
 				}
 			}
-			table.columns_[i].add_value(ptr);
-			if (table.columns_[i].is_autoinc() && table.columns_[i].info.type == Integer) {(*std::static_pointer_cast<int>(table.columns_[i].default_value_))++;}
+			table.columns_[i]->add_value(ptr);
+			if (table.columns_[i]->is_autoinc() && table.columns_[i]->info.type == Integer)
+			{
+				(*std::static_pointer_cast<int>(ptr))++;
+				table.columns_[i]->set_default(ptr);
+			}
 		}
 	}
 	table.rows = 1;
 	get(name).append(table);
 
-	return Tables::QueryResult(table);
+	return Tables::QueryResult(std::make_shared<Tables::Table>(table));
 }
 
 
@@ -222,14 +215,44 @@ Tables::Table& memdb::Database::get(std::string name)
 			return table;
 		}
 	}
-	return tables_[0];
+	throw TableException(TE::TNEXIST);
 }
 
 
 Tables::QueryResult memdb::Database::select()
 {
-	calculate(tables_[0]);
-	return Tables::QueryResult();
+	std::shared_ptr<Tables::Table> res = std::make_shared<Tables::Table>();
+	res->set_name("select result");
+
+	std::vector<std::string> calcs;
+	if (!parser_.parse_before_from(calcs)) {
+		throw TableException(TE::WRONG_EXPRS);
+	}
+
+	std::string name;
+	if (!parser_.parse_name(name)) {
+		throw TableException(TE::PARSE_TNAME);
+	}
+
+	parser_.parse_string("where|WHERE");
+	auto a = std::static_pointer_cast<std::vector<bool>>(calculate(get(name))->evaluate(nullptr));
+	res->rows = std::count_if(a->begin(), a->end(), [](bool b){return b;});
+
+	int cnt = 0;
+	for (auto s: calcs)
+	{
+		cnt++;
+		parser_.set_query(s);
+		auto calc = calculate(get(name));
+		auto new_col = Columns::CreateColumn(calc->value_type);
+		new_col->set_name(std::to_string(cnt));
+		auto b = calc->evaluate(a);
+		new_col->set_values(b);
+		new_col->describe();
+		res->add_column(new_col);
+	}
+
+	return Tables::QueryResult(res);
 }
 
 
@@ -241,7 +264,30 @@ Tables::QueryResult memdb::Database::update()
 
 Tables::QueryResult memdb::Database::remove()
 {
-	return Tables::QueryResult();
+	std::shared_ptr<Tables::Table> res = std::make_shared<Tables::Table>();
+	res->set_name("delete result");
+
+	std::string name;
+	if (!parser_.parse_name(name)) {
+		throw TableException(TE::PARSE_TNAME);
+	}
+	auto& tab = get(name);
+
+	parser_.parse_string("where|WHERE");
+	auto a = std::static_pointer_cast<std::vector<bool>>(calculate(get(name))->evaluate(nullptr));
+	res->rows = std::count_if(a->begin(), a->end(), [](bool b){return b;});
+
+	for (auto& col: tab.columns_)
+	{
+		auto b = col->extract(a);
+		auto new_col = col->get_structure();
+		new_col->set_values(b);
+		new_col->describe();
+		res->add_column(new_col);
+	}
+	tab.rows -= res->rows;
+
+	return Tables::QueryResult(res);
 }
 
 
@@ -260,18 +306,15 @@ void memdb::Database::describe()
 }
 
 
-std::shared_ptr<void> memdb::Database::calculate(Tables::Table& table)
-{	
-	///////
-	table.get("id");
-	///////
-
+std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
+{
 	std::vector<std::shared_ptr<Evaluator>> vec;
 	std::stack<std::shared_ptr<Evaluator>> stack; 
 	std::string token;
 
 	while (parser_.parse_token(token))
 	{
+		std::cout << token << "\n";
 		if (token == "(")
 		{
 			stack.push(std::make_shared<Evaluator>(nullptr, NODE_TYPE::OPEN_BRACE));
@@ -291,12 +334,12 @@ std::shared_ptr<void> memdb::Database::calculate(Tables::Table& table)
 			{
 				stack.push(std::make_shared<Evaluator>(nullptr, TOKEN_TO_OPERATOR[token]));
 			}
-			else if (prior(TOKEN_TO_OPERATOR[token]) > prior(stack.top()->node_type))
+			else if (prior(TOKEN_TO_OPERATOR[token]) < prior(stack.top()->node_type))
 			{
 				stack.push(std::make_shared<Evaluator>(nullptr, TOKEN_TO_OPERATOR[token]));
 			} else
 			{
-				while (!stack.empty() && prior(TOKEN_TO_OPERATOR[token]) <= prior(stack.top()->node_type))
+				while (!stack.empty() && prior(TOKEN_TO_OPERATOR[token]) >= prior(stack.top()->node_type))
 				{
 					vec.push_back(stack.top());
 					stack.pop();
@@ -309,9 +352,9 @@ std::shared_ptr<void> memdb::Database::calculate(Tables::Table& table)
 			bool fnd = false;
 			for (auto& col: table.columns_)
 			{
-				if (col.name == token)
+				if (col->name == token)
 				{
-					vec.push_back(std::make_shared<Evaluator>(col.vec_, NODE_TYPE::COLUMN, col.info.type));
+					vec.push_back(std::make_shared<Evaluator>(col->get_values(), NODE_TYPE::COLUMN, col->info.type));
 					fnd = true;
 					break;
 				}
@@ -362,9 +405,8 @@ std::shared_ptr<void> memdb::Database::calculate(Tables::Table& table)
 		}
 	}
 
-	return stack.top()->evaluate();
+	std::shared_ptr<Evaluator> head = std::make_shared<EvaluatorHead>();
+	head->left = stack.top();
+
+	return head;
 }
-
-
-
-	

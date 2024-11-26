@@ -390,6 +390,7 @@ std::vector<std::string> Parser::split_values(const std::string &s, char delim)
         while (std::getline(ss, item, delim)) {
                 elems.push_back(item);
         }
+        if (s[s.size()-1] == delim) {elems.push_back(std::string(""));}
         return elems;
 }
 

@@ -188,16 +188,16 @@ Tables::QueryResult memdb::Database::insert()
 					if (!ptr) {
 						throw TableException(TE::NO_DEFAULT);
 					}
+					if (table.columns_[i]->is_autoinc() && table.columns_[i]->info.type == Integer)
+					{
+						(*std::static_pointer_cast<int>(ptr))++;
+						table.columns_[i]->set_default(ptr);
+					}
 				} else {
 					throw TableException(TE::PARSE_VAL);
 				}
 			}
 			table.columns_[i]->add_value(ptr);
-			if (table.columns_[i]->is_autoinc() && table.columns_[i]->info.type == Integer)
-			{
-				(*std::static_pointer_cast<int>(ptr))++;
-				table.columns_[i]->set_default(ptr);
-			}
 		}
 	}
 	table.rows = 1;
@@ -247,7 +247,6 @@ Tables::QueryResult memdb::Database::select()
 		auto new_col = Columns::CreateColumn(calc->value_type);
 		new_col->set_name(std::to_string(cnt));
 		new_col->set_values(b);
-		new_col->describe();
 		res->add_column(new_col);
 	}
 
@@ -297,7 +296,6 @@ Tables::QueryResult memdb::Database::update()
 		auto new_col = Columns::CreateColumn(calc->value_type);
 		new_col->set_name(name);
 		new_col->set_values(b);
-		new_col->describe();
 		res->add_column(new_col);
 	}
 
@@ -325,7 +323,6 @@ Tables::QueryResult memdb::Database::remove()
 		auto b = col->extract(a);
 		auto new_col = col->get_structure();
 		new_col->set_values(b);
-		new_col->describe();
 		res->add_column(new_col);
 	}
 	tab.rows -= res->rows;
@@ -358,7 +355,6 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 
 	while (parser_.parse_token(token))
 	{
-		std::cout << token << "\n";
 		if (token == "(")
 		{
 			stack.push(std::make_shared<Evaluator>(nullptr, NODE_TYPE::OPEN_BRACE));
@@ -434,7 +430,7 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 			{
 				throw TableException(TE::PARSE_VAL);
 			}
-			vec.push_back(std::make_shared<Evaluator>(val, NODE_TYPE::VALUE, tp));	
+			vec.push_back(std::make_shared<Evaluator>(val, NODE_TYPE::VALUE, tp));
 		}
 
 	}
@@ -444,13 +440,6 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 		vec.push_back(stack.top());
 		stack.pop();
 	}
-
-	std::cout << "Size: " << vec.size() << "\n";
-	for (auto& a: vec)
-	{
-		a->print();
-	}std::cout << "n\n";
-
 
 	for (auto& a: vec)
 	{
@@ -473,9 +462,9 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 		}
 	}
 
-	std::shared_ptr<Evaluator> head = std::make_shared<EvaluatorHead>();
+	std::shared_ptr<EvaluatorHead> head = std::make_shared<EvaluatorHead>();
+	head->set_rows(table.rows);
 	head->left = stack.top();
-
 	return head;
 }
 

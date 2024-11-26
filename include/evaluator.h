@@ -53,4 +53,7 @@ class EvaluatorHead: public Evaluator
 public:
 	EvaluatorHead() = default;
 	std::shared_ptr<void> evaluate(std::shared_ptr<std::vector<bool>> vc) override;
+
+	int rows = 1;
+	void set_rows(int rows);
 };

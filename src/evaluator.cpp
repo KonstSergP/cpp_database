@@ -146,11 +146,11 @@ std::shared_ptr<void> Evaluator::evaluate(std::shared_ptr<std::vector<bool>> vc)
 
 
 template<typename T>
-static std::shared_ptr<std::vector<T>> repeat(std::shared_ptr<void> val, int n)
+static std::shared_ptr<std::vector<T>> repeat(std::shared_ptr<void> val, size_t n)
 {
 	auto a = std::make_shared<std::vector<T>>();
 	auto value = std::static_pointer_cast<T>(val);
-	for (int i = 0; i < n; i++) {
+	for (size_t i = 0; i < n; i++) {
 		a->push_back(*value);
 	}
 	return a;
@@ -167,12 +167,14 @@ std::shared_ptr<void> EvaluatorHead::evaluate(std::shared_ptr<std::vector<bool>>
 	value_type = left->value_type;
 	if (left->node_type == NODE_TYPE::VALUE)
 	{
+		size_t sz;
+		if (!vc) {sz = rows;} else {sz = vc->size();}
 		switch (value_type)
 		{
-		case Integer: ptr_ = repeat<int>(ptr_, vc->size()); break;
-		case Boolean: ptr_ = repeat<bool>(ptr_, vc->size()); break;
-		case Text:    ptr_ = repeat<std::string>(ptr_, vc->size()); break;
-		case Bytes:   ptr_ = repeat<std::string>(ptr_, vc->size()); break;
+		case Integer: ptr_ = repeat<int>(ptr_, sz); break;
+		case Boolean: ptr_ = repeat<bool>(ptr_, sz); break;
+		case Text:    ptr_ = repeat<std::string>(ptr_, sz); break;
+		case Bytes:   ptr_ = repeat<std::string>(ptr_, sz); break;
 		}
 	}
 	return ptr_;
@@ -226,7 +228,6 @@ static std::shared_ptr<void> arithm_op(std::shared_ptr<void> x, std::shared_ptr<
 		int a = (l_v) ? *VALI(x) : (*VECI(x))[i];
 		int b = (r_v) ? *VALI(y) : (*VECI(y))[i];
 		z[i] = math_ops[n_type](a, b);
-		std::cout << a << " " << b << " " << z[i] << "\n";
 	}
 	if (sz == 1)
 	{
@@ -248,6 +249,7 @@ static std::shared_ptr<void> compare(std::shared_ptr<void> x, std::shared_ptr<vo
 	{
 		T a = (l_v) ? *VALT(x, T) : (*VECT(x, T))[i];
 		T b = (r_v) ? *VALT(y, T) : (*VECT(y, T))[i];
+
 		switch (tp)
 		{
 		case NODE_TYPE::EQUAL:
@@ -312,7 +314,6 @@ std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> 
 		bool a = (l_v) ? *VALT(x, bool) : (*VECT(x, bool))[i];
 		bool b = (r_v) ? *VALT(y, bool) : (*VECT(y, bool))[i];
 		z[i] = log_ops[n_type](a, b);
-		std::cout << a << " " << b << " " << z[i] << "\n";
 	}
 	if (sz == 1)
 	{
@@ -334,7 +335,6 @@ std::shared_ptr<void> concat(std::shared_ptr<void> x, std::shared_ptr<void> y, b
 		std::string a = (l_v) ? *VALT(x, std::string) : (*VECT(x, std::string))[i];
 		std::string b = (r_v) ? *VALT(y, std::string) : (*VECT(y, std::string))[i];
 		z[i] = a+b;
-		std::cout << a << " " << b << " " << z[i] << "\n";
 	}
 	if (sz == 1)
 	{
@@ -355,7 +355,6 @@ std::shared_ptr<void> logical_not(std::shared_ptr<void> x, bool l_v, Evaluator* 
 	{
 		bool a = (l_v) ? *VALT(x, bool) : (*VECT(x, bool))[i];
 		z[i] = !a;
-		std::cout << "Not: " << a << " " << z[i] << "\n";
 	}
 	if (sz == 1)
 	{
@@ -375,7 +374,6 @@ std::shared_ptr<void> length(std::shared_ptr<void> x, bool l_v, Evaluator* pt)
 	for (size_t i = 0; i < sz; i++)
 	{
 		z[i] = (l_v) ? VALT(x, std::string)->size() : (*VECT(x, std::string))[i].size();;
-		std::cout << "Length: " << z[i] << "\n";
 	}
 	if (sz == 1)
 	{
@@ -385,4 +383,10 @@ std::shared_ptr<void> length(std::shared_ptr<void> x, bool l_v, Evaluator* pt)
 	{
 		return std::make_shared<std::vector<int>>(std::move(z));
 	}
+}
+
+
+void EvaluatorHead::set_rows(int rws)
+{
+	rows = rws;
 }

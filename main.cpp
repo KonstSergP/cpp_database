@@ -52,6 +52,18 @@ int main()
 	{
 		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
 	}
+	printf("\n\n");
+	memdb::Database db3;
+    auto r1 = db3.execute("CREATE TABLE first ({key, autoincrement} id : int32 = 6, {unique} login: string[32] = \"defaultstring\", password_hash: bytes[8], is_admin: bool = false)");
+    auto r2 = db3.execute("INSERT (1,,0xAAAB,) to first");
+    //r2.what();
+    auto r3 = db3.execute("INSERT (,\"testing\",0xAAAB,) to first");
+    auto r4 = db3.execute("INSERT (2,\"test_string\",0x12345,true) to first");
+    auto r5 = db3.execute("INSERT (,\"abcd\",0xCCCD,false) to first");
+    for (auto& row: db3.get("first"))
+    {
+    	std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
+    }
 
 
 	return 0;

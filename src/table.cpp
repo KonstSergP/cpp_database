@@ -3,6 +3,7 @@
 #include "../include/utils.h"
 #include <iostream>
 #include <variant>
+#include <fstream>
 #include "../include/ErrorHandler.h"
 
 using namespace Tables;
@@ -183,4 +184,37 @@ Table::TableIterator Table::begin()
 Table::TableIterator Table::end()
 {
 	return Table::TableIterator(rows, this);
+}
+
+
+Table Table::load_from_file(std::ifstream& in, std::string& name)
+{
+	auto res = Table();
+
+	size_t sz; 		in.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+	char nm[sz+1];	in.read(nm, sz); nm[sz]=0; name = std::string(nm); res.set_name(name);
+					in.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+	int rws; 		in.read(reinterpret_cast<char*>(&rws), sizeof(rws)); res.rows = rws;
+
+	for (size_t i = 0; i < sz; i++) {
+		res.add_column(Columns::Column::load_from_file(in, rws));
+	}
+
+	return res;
+}
+
+
+void Table::save_to_file(std::ofstream& out)
+{
+	auto sz = name.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+	out.write(name.c_str(), sz);
+	sz = columns_.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+
+	out.write(reinterpret_cast<char*>(&rows), sizeof(rows));
+
+	for (auto& v: columns_) {
+		v->save_to_file(out);
+	}
 }

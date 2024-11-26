@@ -25,7 +25,8 @@ enum class TE
     WRONG_EXPRS,
     NO_KEYWORD,
     UNEXP_QUERY,
-    NO_OPERATOR
+    NO_OPERATOR,
+    EVAL_FAULT
 };
 
 

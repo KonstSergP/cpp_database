@@ -34,6 +34,8 @@ int prior(NODE_TYPE type)
 {
 	switch(type)
 	{
+	case NODE_TYPE::NOT:
+		return 2;
     case NODE_TYPE::MULTYPLICATION:
     case NODE_TYPE::DIVISION:
     case NODE_TYPE::MOD:
@@ -56,6 +58,7 @@ int prior(NODE_TYPE type)
     case NODE_TYPE::OR:
     	return 12;
     case NODE_TYPE::OPEN_BRACE:
+    case NODE_TYPE::ABS:
         return 20;
     default:
     	return 0;
@@ -66,6 +69,8 @@ static std::shared_ptr<void> arithm_op(std::shared_ptr<void> x, std::shared_ptr<
 static std::shared_ptr<void> comparison(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type, NODE_TYPE tp, Evaluator* pt);
 static std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt);
 static std::shared_ptr<void> concat(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Evaluator* pt);
+static std::shared_ptr<void> logical_not(std::shared_ptr<void> x, bool l_v, Evaluator* pt);
+static std::shared_ptr<void> length(std::shared_ptr<void> x, bool l_v, Evaluator* pt);
 
 Evaluator::Evaluator(std::shared_ptr<void> ptr, NODE_TYPE type): node_type(type), ptr_(ptr)
 {}
@@ -108,11 +113,12 @@ std::shared_ptr<void> Evaluator::evaluate(std::shared_ptr<std::vector<bool>> vc)
 		}
 		return ptr_;
 	}
+
 	auto x = left->evaluate(vc); 	Types lt = left->value_type;
-	auto y = right->evaluate(vc); //Types rt = right->value_type;
+	auto y = (node_type != NODE_TYPE::NOT && node_type != NODE_TYPE::ABS) ? right->evaluate(vc) : nullptr; //Types rt = right->value_type;
 	std::shared_ptr<void> result;
 
-	bool l_v = (left->node_type == NODE_TYPE::VALUE), r_v = (right->node_type == NODE_TYPE::VALUE);
+	bool l_v = (left->node_type == NODE_TYPE::VALUE), r_v = (node_type != NODE_TYPE::NOT && node_type != NODE_TYPE::ABS) ? (right->node_type == NODE_TYPE::VALUE) : 0;
 
 	switch (node_type)
 	{
@@ -131,6 +137,8 @@ std::shared_ptr<void> Evaluator::evaluate(std::shared_ptr<std::vector<bool>> vc)
 	case NODE_TYPE::AND:
 	case NODE_TYPE::OR:
 	case NODE_TYPE::XOR:			value_type = Boolean; ptr_ = logical_op(x, y, l_v, r_v, node_type, this); break;
+	case NODE_TYPE::NOT:			value_type = Boolean; ptr_ = logical_not(x, l_v, this); break;
+	case NODE_TYPE::ABS:			value_type = Integer; ptr_ = length(x, l_v, this); break;
 	default: value_type = Integer; ptr_ = std::make_shared<std::vector<int>>();
 	}
 	return ptr_;
@@ -151,7 +159,11 @@ static std::shared_ptr<std::vector<T>> repeat(std::shared_ptr<void> val, int n)
 
 std::shared_ptr<void> EvaluatorHead::evaluate(std::shared_ptr<std::vector<bool>> vc)
 {
-	ptr_ = left->evaluate(vc);
+	try {
+		ptr_ = left->evaluate(vc);
+	} catch (std::exception& e) {
+		throw TableException(TE::EVAL_FAULT);
+	}
 	value_type = left->value_type;
 	if (left->node_type == NODE_TYPE::VALUE)
 	{
@@ -331,5 +343,46 @@ std::shared_ptr<void> concat(std::shared_ptr<void> x, std::shared_ptr<void> y, b
 	}else
 	{
 		return std::make_shared<std::vector<std::string>>(std::move(z));
+	}
+}
+
+
+std::shared_ptr<void> logical_not(std::shared_ptr<void> x, bool l_v, Evaluator* pt)
+{
+	size_t sz; if (l_v) {sz = 1;} else {sz = VECT(x, bool)->size();}
+	auto z = std::vector<bool>(sz);
+	for (size_t i = 0; i < sz; i++)
+	{
+		bool a = (l_v) ? *VALT(x, bool) : (*VECT(x, bool))[i];
+		z[i] = !a;
+		std::cout << "Not: " << a << " " << z[i] << "\n";
+	}
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<bool>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<bool>>(std::move(z));
+	}
+}
+
+
+std::shared_ptr<void> length(std::shared_ptr<void> x, bool l_v, Evaluator* pt)
+{
+	size_t sz; if (l_v) {sz = 1;} else {sz = VECT(x, std::string)->size();}
+	auto z = std::vector<int>(sz);
+	for (size_t i = 0; i < sz; i++)
+	{
+		z[i] = (l_v) ? VALT(x, std::string)->size() : (*VECT(x, std::string))[i].size();;
+		std::cout << "Length: " << z[i] << "\n";
+	}
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<int>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<int>>(std::move(z));
 	}
 }

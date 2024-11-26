@@ -1,17 +1,19 @@
 
 CXX = g++
 
+CPPFLAGS += -isystem $(GTEST_DIR)include
+GTEST_DIR = ./googletest/googletest/
 CXXFLAGS = \
 	-std=c++20 \
 	-Wall      \
 	-Wextra    \
 	-Werror \
-	-g3 \
 	-O0 \
-	-fsanitize=undefined,address
+	-pthread
+#	-g3 \
+#	-fsanitize=undefined,address
 
-LDFLAGS = \
-		-fsanitize=undefined,address
+#LDFLAGS = -fsanitize=undefined,address
 
 BRED    = \033[1;31m
 BGREEN  = \033[1;32m
@@ -52,13 +54,25 @@ default: $(EXECUTABLE)
 $(OBJDIR)/%.o: %.cpp $(INCLUDES) Makefile
 	@printf "$(BYELLOW)Building object file $(BCYAN)$@$(RESET)\n"
 	@mkdir -p build
-	$(CXX) -c $< $(CXXFLAGS) -o $@
+	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) -I $(GTEST_DIR) $< -o $@
 
 
 
 run: $(EXECUTABLE)
 	@printf "$(BYELLOW)Running file $(BCYAN)$<$(RESET)\n"
 	@./$(EXECUTABLE)
+
+
+test: test.cpp $(OBJECTS)
+	@printf "$(BYELLOW)Building object file $(BCYAN)$@.o$(RESET)\n"
+	@mkdir -p build
+	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) -I $(GTEST_DIR) $< -o $(OBJDIR)/$@.o
+	@printf "$(BYELLOW)Linking executable $(BCYAN)$@$(RESET)\n"
+	@$(CXX) $(CPPFLAGS) $(LDFLAGS) $(OBJECTS) $(OBJDIR)/$@.o -o $(OBJDIR)/$@ googletest/build/lib/libgtest.a
+	@printf "$(BYELLOW)Running file $(BCYAN)$<$(RESET)\n"
+	@./$(OBJDIR)/$@
+
+
 
 debug: $(EXECUTABLE)
 	@printf "$(BYELLOW)Debugging file $(BCYAN)$<$(RESET)\n"

@@ -2,6 +2,11 @@
 
 #include <string>
 
+
+#define RED "\033[1;31m"
+#define NORMAL "\033[1;0m"
+
+
 enum Types {Integer, Boolean, Text, Bytes};
 
 extern const char* TypeNames[];

@@ -24,7 +24,8 @@ std::map<TE, std::string> TE_messages =
 	{TE::WRONG_EXPRS,  "Can\'t read expression to calculate\n"},
 	{TE::NO_KEYWORD,   "Keyword is required, but not found\n"},
 	{TE::UNEXP_QUERY,  "Can\'t get enough information\n"},
-	{TE::NO_OPERATOR,  "Can\'t find any operator\n"}
+	{TE::NO_OPERATOR,  "Can\'t find any operator\n"},
+	{TE::EVAL_FAULT,   "Error occured during evaluation\n"}
 };
 
 

@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <fstream>
 
 
 
@@ -41,6 +42,7 @@ namespace Columns
 		void describe() const;
 		std::string get_type_string() const;
 		std::shared_ptr<Column> get_structure();
+		static std::shared_ptr<Column> load_from_file(std::ifstream& in, int rws);
 
 		virtual void set_default(std::shared_ptr<void> ptr) = 0;
 		virtual std::shared_ptr<void> get_default() = 0;
@@ -52,6 +54,8 @@ namespace Columns
 		virtual void set_values(std::shared_ptr<void> ptr) = 0;
 		virtual std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) = 0;
 		virtual void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) = 0;
+		virtual void save_to_file(std::ofstream& out) = 0;
+		virtual void load_values(std::ifstream& in, int rws) = 0;
 
 		template <typename T>
 		T get(int index)
@@ -98,6 +102,8 @@ namespace Columns
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
 		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
+		void save_to_file(std::ofstream& out) override;
+		void load_values(std::ifstream& in, int rws) override;
 	};
 
 
@@ -120,6 +126,8 @@ namespace Columns
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
 		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
+		void save_to_file(std::ofstream& out) override;
+		void load_values(std::ifstream& in, int rws) override;
 	};
 
 	class TextColumn: public Column
@@ -141,6 +149,8 @@ namespace Columns
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
 		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
+		void save_to_file(std::ofstream& out) override;
+		void load_values(std::ifstream& in, int rws) override;
 	};
 
 	class BytesColumn: public Column
@@ -162,6 +172,8 @@ namespace Columns
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
 		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
+		void save_to_file(std::ofstream& out) override;
+		void load_values(std::ifstream& in, int rws) override;
 	};
 
 	std::shared_ptr<Column> CreateColumn(TypeInfo type_info);

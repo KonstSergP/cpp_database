@@ -2,6 +2,7 @@
 #include "../include/utils.h"
 #include "../include/ErrorHandler.h"
 #include <iostream>
+#include <fstream>
 
 using namespace Columns;
 
@@ -376,3 +377,119 @@ void BytesColumn::replace(std::shared_ptr<void> vals, std::shared_ptr<std::vecto
 	}
 }
 
+
+std::shared_ptr<Column> Column::load_from_file(std::ifstream& in, int rws)
+{
+	size_t sz;		in.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+	char nm[sz+1];	in.read(nm, sz); nm[sz] = 0;
+	TypeInfo ti; 	in.read(reinterpret_cast<char*>(&(ti)), sizeof(ti));
+	auto pt = CreateColumn(ti); pt->set_name(std::string(nm));
+
+	ColumnAttributes att;
+	in.read(reinterpret_cast<char*>(&(att)), sizeof(att));
+	pt->set_attributes(att);
+
+	pt->load_values(in, rws);
+	return pt;
+}
+
+
+void IntColumn::save_to_file(std::ofstream& out)
+{	
+	auto sz = name.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+	out.write(name.c_str(), sz);
+
+	out.write(reinterpret_cast<char*>(&(info)), sizeof(info));
+	out.write(reinterpret_cast<char*>(&(attributes)), sizeof(attributes));
+	for (int a: *vec_) {
+		out.write(reinterpret_cast<char*>(&(a)), sizeof(a));
+	}
+}
+
+void IntColumn::load_values(std::ifstream& in, int rws)
+{
+	int a;
+	for (int i = 0; i < rws; i++) {
+		in.read(reinterpret_cast<char*>(&(a)), sizeof(a));
+		vec_->push_back(a);
+	}
+}
+
+void BoolColumn::save_to_file(std::ofstream& out)
+{
+	auto sz = name.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+	out.write(name.c_str(), sz);
+
+	out.write(reinterpret_cast<char*>(&(info)), sizeof(info));
+	out.write(reinterpret_cast<char*>(&(attributes)), sizeof(attributes));
+	for (bool a: *vec_) {
+		out.write(reinterpret_cast<char*>(&(a)), sizeof(a));
+	}
+}
+
+void BoolColumn::load_values(std::ifstream& in, int rws)
+{
+	bool a;
+	for (int i = 0; i < rws; i++) {
+		in.read(reinterpret_cast<char*>(&(a)), sizeof(a));
+		vec_->push_back(a);
+	}
+}
+
+void TextColumn::save_to_file(std::ofstream& out)
+{
+	auto sz = name.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+	out.write(name.c_str(), sz);
+
+	out.write(reinterpret_cast<char*>(&(info)), sizeof(info));
+	out.write(reinterpret_cast<char*>(&(attributes)), sizeof(attributes));
+	for (std::string a: *vec_)
+	{
+		size_t sz = a.size();
+		out.write(reinterpret_cast<char*>(&(sz)), sizeof(sz));
+		out.write(a.c_str(), sz);
+	}
+}
+
+void TextColumn::load_values(std::ifstream& in, int rws)
+{
+	size_t sz;
+	for (int i = 0; i < rws; i++)
+	{
+		in.read(reinterpret_cast<char*>(&(sz)), sizeof(sz));
+		char s[sz+1];
+		in.read(s, sz); s[sz] = 0;
+		vec_->push_back(std::string(s));
+	}
+}
+
+void BytesColumn::save_to_file(std::ofstream& out)
+{
+	auto sz = name.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+	out.write(name.c_str(), sz);
+
+	out.write(reinterpret_cast<char*>(&(info)), sizeof(info));
+	out.write(reinterpret_cast<char*>(&(attributes)), sizeof(attributes));
+	for (std::string a: *vec_)
+	{
+		size_t sz = a.size();
+		out.write(reinterpret_cast<char*>(&(sz)), sizeof(sz));
+		out.write(a.c_str(), sz);
+	}
+}
+
+void BytesColumn::load_values(std::ifstream& in, int rws)
+{
+	size_t sz;
+	for (int i = 0; i < rws; i++)
+	{
+		in.read(reinterpret_cast<char*>(&(sz)), sizeof(sz));
+		char s[sz + 1];
+		in.read(s, sz); s[sz] = 0;
+		vec_->push_back(std::string(s));
+	}
+}

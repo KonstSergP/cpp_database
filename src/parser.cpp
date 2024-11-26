@@ -403,7 +403,7 @@ bool Parser::end_of_query()
 bool Parser::parse_token(std::string& token)
 {
 	parse_space_newline_seq();
-	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\"([a-zA-Z0-9]|\\\"|\\n|\\t|[\\!\\+\\-\\.\\/\\=\\_])*\"|\\&\\&|\\^\\^|\\|\\||>=|<=|!=|\\!|[\\+\\-\\*/%><=]|[a-zA-Z_]+");
+	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\"([a-zA-Z0-9]|\\\"|\\n|\\t|[\\!\\+\\-\\.\\/\\=\\_])*\"|\\&\\&|\\^\\^|\\|\\||\\||>=|<=|!=|\\!|[\\+\\-\\*/%><=]|[a-zA-Z_]+");
 	bool success = parse_pattern(pat, token);
 	return success;
 }

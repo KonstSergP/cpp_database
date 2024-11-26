@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <variant>
+#include <fstream>
 
 
 namespace Tables
@@ -26,6 +27,8 @@ namespace Tables
 		Table get_structure();
 		void append(Table& other);
 		std::shared_ptr<Column> get(std::string name);
+		void save_to_file(std::ofstream& out);
+		static Table load_from_file(std::ifstream& in, std::string& name);
 
 	//private:
 		std::vector<std::shared_ptr<Column>> columns_;

@@ -3,6 +3,7 @@
 #include <stack>
 #include <limits>
 #include <memory>
+#include <fstream>
 #include "../include/database.h"
 #include "../include/utils.h"
 #include "../include/ErrorHandler.h"
@@ -353,6 +354,7 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 	std::vector<std::shared_ptr<Evaluator>> vec;
 	std::stack<std::shared_ptr<Evaluator>> stack; 
 	std::string token;
+	bool len_opened = false;
 
 	while (parser_.parse_token(token))
 	{
@@ -369,6 +371,25 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 				stack.pop();
 			}
 			stack.pop();
+		}
+		else if (token == "|")
+		{
+			if (!len_opened)
+			{
+				len_opened = true;
+				stack.push(std::make_shared<Evaluator>(nullptr, NODE_TYPE::ABS));
+			}
+			else
+			{
+				len_opened = false;
+				while (stack.top()->node_type != NODE_TYPE::ABS)
+				{
+					vec.push_back(stack.top());
+					stack.pop();
+				}
+				vec.push_back(stack.top());	
+				stack.pop();
+			}
 		}
 		else if (TOKEN_TO_OPERATOR.find(token) != TOKEN_TO_OPERATOR.end())
 		{
@@ -433,8 +454,13 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 
 	for (auto& a: vec)
 	{
-		if (a->node_type == NODE_TYPE::VALUE || a->node_type == NODE_TYPE::COLUMN)
+		if (a->node_type == NODE_TYPE::VALUE || a->node_type == NODE_TYPE::COLUMN) {
+			stack.push(a);
+		}
+		else if (a->node_type == NODE_TYPE::NOT || a->node_type == NODE_TYPE::ABS)
 		{
+			a->left = stack.top();
+			stack.pop();
 			stack.push(a);
 		}
 		else
@@ -451,4 +477,30 @@ std::shared_ptr<Evaluator> memdb::Database::calculate(Tables::Table& table)
 	head->left = stack.top();
 
 	return head;
+}
+
+
+void memdb::Database::load_from_file(std::ifstream&& in)
+{
+	tables_.clear();
+	size_t sz; in.read(reinterpret_cast<char*>(&sz), sizeof(sz));
+	std::string name;
+
+	for (size_t i = 0; i < sz; i++)
+	{
+		auto tb = Tables::Table::load_from_file(in, name);
+		tables_[name] = tb;
+	}
+}
+
+
+void memdb::Database::save_to_file(std::ofstream&& out)
+{
+	auto sz = tables_.size();
+	out.write(reinterpret_cast<char*>(&sz), sizeof(sz));
+
+	for (auto& [k, v]: tables_)
+	{
+		v.save_to_file(out);
+	}
 }

@@ -22,7 +22,7 @@ std::string random_string( size_t length )
 
 int main()
 {
-	memdb::Database db;
+	memdb::Database db, db1;
 
 	auto result = db.execute("CREATE TABLE first ({key, autoincrement} id : int32 = 6, {unique} login: string[32] = \"defaultstring\", password_hash: bytes[8], is_admin: bool = false)");
 	db.execute("CREATE TABLE second ({autoincrement} pos : int32 = 0, {key} id: int32, {unique} name: string[16] = \"amogus\")");
@@ -40,45 +40,19 @@ int main()
 	}
 	auto res = db.execute("INSERT (200, \"kostya\", 0xaaaabbbb, true) to first");
 
-	if (!res.is_ok())
-	{
-		res.what();
-	}
-	db.execute("INSERT (login = \"test\", password_hash = 0xbebebe) to first");
-
 	
-	auto sel = db.execute("SELECT id, login from first WHERE id = 10");
-	for (auto& row: sel)
-	{
-		std::cout << "SEL: " << row.get<int32_t>("1") << " " << row.get<std::string>("2") << "\n";
-	}
+	db.save_to_file(std::ofstream("db.bin", std::ios::binary));
 
+	printf("LOADING\n");
 
-	for (auto& row: db.get("first"))
+	db1.load_from_file(std::ifstream("db.bin", std::ios::binary));
+	db1.describe();
+
+	for (auto& row: db1.get("first"))
 	{
 		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
 	}
-	auto r = db.execute("DELETE first WHERE id % 3 = 2");
-	for (auto& row: db.get("first"))
-	{
-		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
-	}
-	// for (auto& row: r)
-	// {
-	// 	std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
-	// }
 
-	auto ru = db.execute("UPDATE first SET id = id + 2, is_admin = true WHERE !(id % 2 = 0)");
-
-	for (auto& row: db.get("first"))
-	{
-		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
-	}
-	printf("\n");
-	for (auto& row: ru)
-	{
-		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<bool>("is_admin") << "\n";
-	}
 
 	return 0;
 }

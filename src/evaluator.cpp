@@ -65,6 +65,7 @@ int prior(NODE_TYPE type)
 static std::shared_ptr<void> arithm_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt);
 static std::shared_ptr<void> comparison(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Types type, NODE_TYPE tp, Evaluator* pt);
 static std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, NODE_TYPE n_type, Evaluator* pt);
+static std::shared_ptr<void> concat(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Evaluator* pt);
 
 Evaluator::Evaluator(std::shared_ptr<void> ptr, NODE_TYPE type): node_type(type), ptr_(ptr)
 {}
@@ -116,6 +117,7 @@ std::shared_ptr<void> Evaluator::evaluate(std::shared_ptr<std::vector<bool>> vc)
 	switch (node_type)
 	{
 	case NODE_TYPE::ADDITION:
+									if (left->value_type == Text) {value_type = Text; ptr_ = concat(x, y, l_v, r_v, this); break;} [[fallthrough]];
 	case NODE_TYPE::SUBSTRACTION:
 	case NODE_TYPE::MULTYPLICATION:
 	case NODE_TYPE::DIVISION:
@@ -147,18 +149,18 @@ static std::shared_ptr<std::vector<T>> repeat(std::shared_ptr<void> val, int n)
 }
 
 
-
 std::shared_ptr<void> EvaluatorHead::evaluate(std::shared_ptr<std::vector<bool>> vc)
 {
 	ptr_ = left->evaluate(vc);
+	value_type = left->value_type;
 	if (left->node_type == NODE_TYPE::VALUE)
 	{
 		switch (value_type)
 		{
 		case Integer: ptr_ = repeat<int>(ptr_, vc->size()); break;
-		case Boolean: ptr_ = repeat<int>(ptr_, vc->size()); break;
-		case Text:    ptr_ = repeat<int>(ptr_, vc->size()); break;
-		case Bytes:   ptr_ = repeat<int>(ptr_, vc->size()); break;
+		case Boolean: ptr_ = repeat<bool>(ptr_, vc->size()); break;
+		case Text:    ptr_ = repeat<std::string>(ptr_, vc->size()); break;
+		case Bytes:   ptr_ = repeat<std::string>(ptr_, vc->size()); break;
 		}
 	}
 	return ptr_;
@@ -307,5 +309,27 @@ std::shared_ptr<void> logical_op(std::shared_ptr<void> x, std::shared_ptr<void> 
 	}else
 	{
 		return std::make_shared<std::vector<bool>>(std::move(z));
+	}
+}
+
+
+std::shared_ptr<void> concat(std::shared_ptr<void> x, std::shared_ptr<void> y, bool l_v, bool r_v, Evaluator* pt)
+{
+	size_t sz; if (l_v && r_v) {sz = 1;} else if (l_v) {sz = VECT(y, std::string)->size();} else if (r_v) {sz = VECT(x, std::string)->size();} else {sz = VECT(x, std::string)->size();}
+	auto z = std::vector<std::string>(sz);
+	for (size_t i = 0; i < sz; i++)
+	{
+		std::string a = (l_v) ? *VALT(x, std::string) : (*VECT(x, std::string))[i];
+		std::string b = (r_v) ? *VALT(y, std::string) : (*VECT(y, std::string))[i];
+		z[i] = a+b;
+		std::cout << a << " " << b << " " << z[i] << "\n";
+	}
+	if (sz == 1)
+	{
+		pt->node_type = NODE_TYPE::VALUE;
+		return std::make_shared<std::string>(z[0]);
+	}else
+	{
+		return std::make_shared<std::vector<std::string>>(std::move(z));
 	}
 }

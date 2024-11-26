@@ -43,6 +43,8 @@ namespace Parsing
 		bool parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, std::string token);
 		bool is_end();
 		bool parse_before_from(std::vector<std::string>& vec);
+		bool parse_where();
+		void parse_before_where(std::vector<std::string>& vec, bool& where_found);
 
 	//private:
 

@@ -51,6 +51,7 @@ namespace Columns
 		virtual std::shared_ptr<void> get_values() = 0;
 		virtual void set_values(std::shared_ptr<void> ptr) = 0;
 		virtual std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) = 0;
+		virtual void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) = 0;
 
 		template <typename T>
 		T get(int index)
@@ -96,6 +97,7 @@ namespace Columns
 		std::shared_ptr<void> get_values() override;
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
+		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
 	};
 
 
@@ -117,6 +119,7 @@ namespace Columns
 		std::shared_ptr<void> get_values() override;
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
+		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
 	};
 
 	class TextColumn: public Column
@@ -137,6 +140,7 @@ namespace Columns
 		std::shared_ptr<void> get_values() override;
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
+		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
 	};
 
 	class BytesColumn: public Column
@@ -157,6 +161,7 @@ namespace Columns
 		std::shared_ptr<void> get_values() override;
 		void set_values(std::shared_ptr<void> ptr) override;
 		std::shared_ptr<void> extract(std::shared_ptr<std::vector<bool>> vec) override;
+		void replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools) override;
 	};
 
 	std::shared_ptr<Column> CreateColumn(TypeInfo type_info);

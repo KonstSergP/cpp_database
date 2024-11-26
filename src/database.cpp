@@ -111,7 +111,7 @@ Tables::QueryResult memdb::Database::create_table()
 		table.add_column(column);
 	}
 
-	tables_.push_back(table);
+	tables_[name] = table;
 
 	return Tables::QueryResult(std::make_shared<Tables::Table>(table));
 }
@@ -208,12 +208,10 @@ Tables::QueryResult memdb::Database::insert()
 
 Tables::Table& memdb::Database::get(std::string name)
 {
-	for (auto& table: tables_)
+	auto res = tables_.find(name);
+	if (res != tables_.end())
 	{
-		if (table.name == name)
-		{
-			return table;
-		}
+		return res->second;
 	}
 	throw TableException(TE::TNEXIST);
 }
@@ -234,7 +232,7 @@ Tables::QueryResult memdb::Database::select()
 		throw TableException(TE::PARSE_TNAME);
 	}
 
-	parser_.parse_string("where|WHERE");
+	parser_.parse_where();
 	auto a = std::static_pointer_cast<std::vector<bool>>(calculate(get(name))->evaluate(nullptr));
 	res->rows = std::count_if(a->begin(), a->end(), [](bool b){return b;});
 
@@ -244,9 +242,9 @@ Tables::QueryResult memdb::Database::select()
 		cnt++;
 		parser_.set_query(s);
 		auto calc = calculate(get(name));
+		auto b = calc->evaluate(a);
 		auto new_col = Columns::CreateColumn(calc->value_type);
 		new_col->set_name(std::to_string(cnt));
-		auto b = calc->evaluate(a);
 		new_col->set_values(b);
 		new_col->describe();
 		res->add_column(new_col);
@@ -258,7 +256,51 @@ Tables::QueryResult memdb::Database::select()
 
 Tables::QueryResult memdb::Database::update()
 {
-	return Tables::QueryResult();
+	std::shared_ptr<Tables::Table> res = std::make_shared<Tables::Table>();
+	res->set_name("update result");
+
+	std::string name;
+	if (!parser_.parse_name(name)) {
+		throw TableException(TE::PARSE_TNAME);
+	}
+	auto& tab = get(name);
+
+	if(!parser_.parse_string("set|SET")) {
+		throw TableException(TE::NO_KEYWORD);
+	}
+	
+	std::vector<std::string> calcs; bool where_found;
+	parser_.parse_before_where(calcs, where_found);
+
+	std::shared_ptr<std::vector<bool>> a = nullptr;
+	if (where_found) {
+		a = std::static_pointer_cast<std::vector<bool>>(calculate(get(name))->evaluate(nullptr));
+		res->rows = std::count_if(a->begin(), a->end(), [](bool b){return b;});
+	} else {
+		res->rows = tab.rows;
+	}
+
+	for (auto s: calcs)
+	{
+		parser_.set_query(s);
+		if (!parser_.parse_name(name)) {
+			throw TableException(TE::PARSE_CNAME);
+		}
+		if (!parser_.parse_equal_sign()) {
+			throw TableException(TE::NO_OPERATOR);
+		}
+
+		auto calc = calculate(tab);
+		auto b = calc->evaluate(a);
+		tab.get(name)->replace(b, a);
+		auto new_col = Columns::CreateColumn(calc->value_type);
+		new_col->set_name(name);
+		new_col->set_values(b);
+		new_col->describe();
+		res->add_column(new_col);
+	}
+
+	return Tables::QueryResult(res);
 }
 
 
@@ -273,7 +315,7 @@ Tables::QueryResult memdb::Database::remove()
 	}
 	auto& tab = get(name);
 
-	parser_.parse_string("where|WHERE");
+	parser_.parse_where();
 	auto a = std::static_pointer_cast<std::vector<bool>>(calculate(get(name))->evaluate(nullptr));
 	res->rows = std::count_if(a->begin(), a->end(), [](bool b){return b;});
 
@@ -296,12 +338,12 @@ void memdb::Database::describe()
 	std::cout << "Tables: ";
 	for (const auto& value: tables_)
 	{
-        std::cout << value.name << " ";
+        std::cout << value.second.name << " ";
 	}
 	std::cout << "\n";
 	for (const auto& value: tables_)
 	{
-        value.describe();
+        value.second.describe();
 	}
 }
 

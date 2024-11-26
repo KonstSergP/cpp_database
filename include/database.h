@@ -21,8 +21,8 @@ namespace memdb
 
 	//private:
 		
-		std::vector<Tables::Table> tables_;
-		Parsing::Parser parser_; 
+		std::map<std::string, Tables::Table> tables_;
+		Parsing::Parser parser_;
 
 		Tables::QueryResult create_table();
 //		Tables::QueryResult create_index();

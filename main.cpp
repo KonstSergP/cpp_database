@@ -39,6 +39,7 @@ int main()
 		db.execute(query);
 	}
 	auto res = db.execute("INSERT (200, \"kostya\", 0xaaaabbbb, true) to first");
+
 	if (!res.is_ok())
 	{
 		res.what();
@@ -46,10 +47,10 @@ int main()
 	db.execute("INSERT (login = \"test\", password_hash = 0xbebebe) to first");
 
 	
-	auto sel = db.execute("SELECT id, login from first WHERE id / 10 = id - 9");
+	auto sel = db.execute("SELECT id, login from first WHERE id = 10");
 	for (auto& row: sel)
 	{
-		std::cout << "Val: " << row.get<int32_t>("1") << " " << row.get<std::string>("2") << "\n";
+		std::cout << "SEL: " << row.get<int32_t>("1") << " " << row.get<std::string>("2") << "\n";
 	}
 
 
@@ -62,10 +63,23 @@ int main()
 	{
 		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
 	}
-	for (auto& row: r)
+	// for (auto& row: r)
+	// {
+	// 	std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
+	// }
+
+	auto ru = db.execute("UPDATE first SET id = id + 2, is_admin = true WHERE !(id % 2 = 0)");
+
+	for (auto& row: db.get("first"))
 	{
 		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<std::string>("login") << " " << row.get<std::string>("password_hash") << " " << row.get<bool>("is_admin") << "\n";
 	}
+	printf("\n");
+	for (auto& row: ru)
+	{
+		std::cout << "Val: " << row.get<int32_t>("id") << " " << row.get<bool>("is_admin") << "\n";
+	}
+
 	return 0;
 }
 

@@ -22,7 +22,10 @@ enum class TE
     UNKNOWN_TYPE,
     CNEXIST,
     TNEXIST,
-    WRONG_EXPRS
+    WRONG_EXPRS,
+    NO_KEYWORD,
+    UNEXP_QUERY,
+    NO_OPERATOR
 };
 
 

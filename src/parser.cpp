@@ -297,7 +297,7 @@ bool Parser::parse_bool(bool& value)
 bool Parser::parse_literal(std::string& text)
 {
 	parse_space_newline_seq();
-	std::regex pat("\".*\"");
+	std::regex pat("\"([a-zA-Z0-9]|\\\"|\\n|\\t|[\\+\\-\\.\\/\\=\\_])*\"");
 	std::string val;
 	bool success = parse_pattern(pat, val);
 
@@ -314,7 +314,7 @@ bool Parser::parse_bytes(std::string& text)
 	parse_space_newline_seq();
 	if (parse_hex(text)) {return true;}
 
-	std::regex pat("\".*\"");
+	std::regex pat("\"[0-9a-fA-F]*\"");
 	std::string val;
 	bool success = parse_pattern(pat, val);
 
@@ -403,7 +403,7 @@ bool Parser::end_of_query()
 bool Parser::parse_token(std::string& token)
 {
 	parse_space_newline_seq();
-	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\".*\"|\\&\\&|\\^\\^|\\|\\||>=|<=|!=|[\\+\\-\\*/%><=]|[a-zA-Z_]+");
+	std::regex pat("\\(|\\)|0x[0-9a-fA-F]+|0|(\\+|\\-)?[1-9][0-9]*|\"([a-zA-Z0-9]|\\\"|\\n|\\t|[\\!\\+\\-\\.\\/\\=\\_])*\"|\\&\\&|\\^\\^|\\|\\||>=|<=|!=|\\!|[\\+\\-\\*/%><=]|[a-zA-Z_]+");
 	bool success = parse_pattern(pat, token);
 	return success;
 }
@@ -422,6 +422,7 @@ bool Parser::parse_token_value(TypeInfo type_info, std::shared_ptr<void>& ptr, s
 
 bool Parser::is_end()
 {
+	parse_space_newline_seq();
 	return pos_ == end_;
 }
 
@@ -436,4 +437,30 @@ bool Parser::parse_before_from(std::vector<std::string>& vec)
 	res = std::string(res.begin(), res.begin()+(res.size()-4));
 	vec = split_values(res, ',');
 	return success;
+}
+
+
+bool Parser::parse_where()
+{
+	parse_space_newline_seq();
+	std::regex pat("WHERE", std::regex::icase);
+	return parse_pattern(pat);
+}
+
+
+void Parser::parse_before_where(std::vector<std::string>& vec, bool& where_found)
+{
+	std::string res;
+	parse_space_newline_seq();
+	std::regex pat(".+(where|WHERE)");
+	where_found = parse_pattern(pat, res);
+	if (where_found)
+	{
+		res = std::string(res.begin(), res.begin()+(res.size()-5));
+	} else
+	{
+		pat = std::regex(".+");
+		parse_pattern(pat, res);
+	}
+	vec = split_values(res, ',');
 }

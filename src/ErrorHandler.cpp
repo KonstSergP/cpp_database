@@ -21,7 +21,10 @@ std::map<TE, std::string> TE_messages =
 	{TE::UNKNOWN_TYPE, "Column has unknown type\n"},
 	{TE::CNEXIST, 	   "Column with this name does not exist\n"},
 	{TE::TNEXIST,      "Table with this name does not exist\n"},
-	{TE::WRONG_EXPRS,  "Can\'t read expression to calculate\n"}
+	{TE::WRONG_EXPRS,  "Can\'t read expression to calculate\n"},
+	{TE::NO_KEYWORD,   "Keyword is required, but not found\n"},
+	{TE::UNEXP_QUERY,  "Can\'t get enough information\n"},
+	{TE::NO_OPERATOR,  "Can\'t find any operator\n"}
 };
 
 

@@ -333,3 +333,46 @@ std::shared_ptr<void> BytesColumn::extract(std::shared_ptr<std::vector<bool>> ve
 	vec_ = b;
 	return a;
 }
+
+
+void IntColumn::replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools)
+{
+	auto a = std::static_pointer_cast<std::vector<int>>(vals); int cnt = 0;
+	for (size_t i = 0; i < bools->size(); i++) {
+		if ((*bools)[i]) {
+			(*vec_)[i] = ((*a)[cnt++]);
+		}
+	}
+}
+
+void BoolColumn::replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools)
+{
+	auto a = std::static_pointer_cast<std::vector<bool>>(vals); int cnt = 0;
+	for (size_t i = 0; i < bools->size(); i++) {
+		if ((*bools)[i]) {
+			std::cout << "rep: " << i << " " << (*a)[i] << "\n";
+			(*vec_)[i] = ((*a)[cnt++]);
+		}
+	}
+}
+
+void TextColumn::replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools)
+{
+	auto a = std::static_pointer_cast<std::vector<std::string>>(vals); int cnt = 0;
+	for (size_t i = 0; i < bools->size(); i++) {
+		if ((*bools)[i]) {
+			(*vec_)[i] = ((*a)[cnt++]);
+		}
+	}
+}
+
+void BytesColumn::replace(std::shared_ptr<void> vals, std::shared_ptr<std::vector<bool>> bools)
+{
+	auto a = std::static_pointer_cast<std::vector<std::string>>(vals); int cnt = 0;
+	for (size_t i = 0; i < bools->size(); i++) {
+		if ((*bools)[i]) {
+			(*vec_)[i] = ((*a)[cnt++]);
+		}
+	}
+}
+
